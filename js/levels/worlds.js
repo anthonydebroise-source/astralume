@@ -40,7 +40,7 @@ export const THEMES = [
     events: ['eclipse', 'rift', 'gravity', 'supernova', 'meteors', 'storm'], lore: 'La source de la Nuée. Le dernier soleil à rallumer.' },
 ];
 
-const VETERANS = ['nautile', 'spectre', 'phasme', 'cuirasse', 'raie', 'mante', 'glouton', 'meduse', 'cristallier', 'mimique', 'pondeuse', 'scindeur', 'pollen'];
+const VETERANS = ['canonnier', 'lanceur', 'mortier', 'nautile', 'spectre', 'phasme', 'cuirasse', 'raie', 'mante', 'glouton', 'meduse', 'cristallier', 'mimique', 'pondeuse', 'scindeur', 'pollen'];
 
 function bulletHue(h, h2) {
   const cands = [330, 350, 0, 305, 280, 318];

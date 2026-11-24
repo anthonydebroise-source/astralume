@@ -85,10 +85,10 @@ export function bodyGrad(ctx, color, r, key = '') {
   let gr = gcache.get(k);
   if (gr) return gr;
   gr = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.05, 0, 0, r * 1.05);
-  gr.addColorStop(0, lighten(color, 0.7));
-  gr.addColorStop(0.35, lighten(color, 0.15));
-  gr.addColorStop(0.75, color);
-  gr.addColorStop(1, darken(color, 0.35));
+  gr.addColorStop(0, lighten(color, 0.75));
+  gr.addColorStop(0.3, lighten(color, 0.2));
+  gr.addColorStop(0.7, color);
+  gr.addColorStop(1, darken(color, 0.6));
   if (gcache.size > 600) gcache.clear();
   gcache.set(k, gr);
   return gr;

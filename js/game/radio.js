@@ -10,6 +10,7 @@ export const RADIO = {
   coins: ['Une pluie de pièces ! Ramasse tout ce que tu peux !', 'Jackpot cosmique en approche. Attention aux faux trésors…'],
   bonus: ['Champ d’astéroïdes riches en cristaux. Mine-les !', 'Ces rochers regorgent de cristaux. Fais-les éclater !'],
   challenge: ['Défi spécial. Montre-leur ce que vaut un Allumeur.', 'Conditions extrêmes. Récompense à la hauteur.'],
+  armada: ['Une armada se met en formation ! Ils ne bougent pas, mais ils tirent de tout.', 'Formation massive droit devant ! Abats les canonniers en priorité.', 'Une flotte entière en position de tir… Ouvre une brèche !'],
   ev_meteors: ['Pluie de météores ! Suis les lignes rouges !'],
   ev_goldcomet: ['Une comète dorée ! Chaque tir en arrache des pièces !'],
   ev_eclipse: ['Éclipse… Je ne vois plus que les lueurs. Pièces ×1,5 dans le noir !'],

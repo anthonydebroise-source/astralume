@@ -99,7 +99,7 @@ export function confirmBox(title, text, okLabel, onOk) {
 
 // ---------- Monnaies ----------
 const curEls = new Set();
-export function curBar(keys = CUR_KEYS) {
+export function curBar(keys = ['coins', 'crystals', 'gems']) {
   const bar = h('div', { class: 'curbar' });
   for (const k of keys) {
     const c = h('div', { class: 'cur', 'data-cur': k }, curIcon(k), h('b', null, fmt(S.cur[k])));

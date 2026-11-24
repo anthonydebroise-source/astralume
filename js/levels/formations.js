@@ -113,6 +113,20 @@ export function formationSpawns(ev) {
         : { k: 'hover', tx, ty: top + H * 0.2, inDur: 2, stay: rng.range(9, 12), exit: 'down', sway: 50 } });
       break;
     }
+    case 'armada': {
+      const rows = ev.rows || 3, cols = ev.cols || 5;
+      const types = ev.types || [ev.type];
+      const rowH = 44, top0 = top + 74, stay = ev.stay || 15;
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        const odd = r % 2 ? 0.5 : 0;
+        if (odd && c === cols - 1) continue;
+        const tx = W * (c + 1 + odd) / (cols + 1);
+        const ty = top0 + (rows - 1 - r) * rowH;
+        out.push({ d: c * 0.06 + r * 0.3, x: tx, y: -30 - r * 36, type: types[Math.min(r, types.length - 1)],
+          path: { k: 'hover', tx, ty, inDur: 1.8, stay: stay - r * 0.3, exit: 'up', sway: 14 } });
+      }
+      break;
+    }
     case 'snake': {
       out.push({ d: 0, x: W * (side ? 0.8 : 0.2), y: -30, path: { k: 'snake', spd: 85, amp: W * 0.33, f: 0.9, x0: W / 2, side } });
       break;

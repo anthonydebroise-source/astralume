@@ -57,7 +57,7 @@ register('hub', {
     const xpk = S.pilot.xp / xpNeeded(S.pilot.lvl);
     const pilot = h('div', { class: 'pilot' }, h('div', { class: 'lvl' }, h('b', null, S.pilot.lvl), h('small', null, 'PILOTE')),
       h('div', { style: 'width:70px' }, h('div', { class: 'bar' }, h('i', { style: `width:${Math.round(xpk * 100)}%` }))));
-    const top = h('div', { class: 'topbar' }, pilot, curBar());
+    const top = h('div', { class: 'topbar' }, pilot, curBar(['coins', 'crystals', 'gems']), iconBtn(SVG.gear, () => go('settings'), 'Réglages'));
     const hero = h('div', { class: 'hero' });
     const planet = h('div', { style: 'position:absolute;left:0;right:0;top:4%;bottom:42%;pointer-events:none' });
     widget(planet, (r, t) => {
@@ -77,20 +77,16 @@ register('hub', {
     hero.append(planet,
       h('div', { class: 'wname' }, `Monde ${W.w + 1} · ${info.code}`),
       h('div', { class: 'wtitle', style: `color:${W.pal.neb2}` }, W.name),
-      btn(SVG.play.replace('<svg', '<svg style="width:22px;height:22px"') + ` JOUER ${info.code}`, 'primary big pulse', () => levelSheet(L)));
+      btn(SVG.play.replace('<svg', '<svg style="width:22px;height:22px"') + ` JOUER ${info.code}`, 'primary big pulse', () => levelSheet(L)),
+      h('button', { class: 'btn ghost small', style: 'margin-top:10px', onclick: () => { sfx.ui(); go('map'); } }, h('span', { html: SVG.map, style: 'width:16px;display:inline-flex' }), 'Carte des mondes', starRewardsAvailable() ? h('span', { class: 'badge', style: 'position:static;margin-left:4px' }, '★') : null));
     const badge = (n) => (n > 0 ? h('div', { class: 'badge' }, n) : null);
     const wc = wheelCost();
-    const tiles = [
-      ['map', 'Carte', '#38f2ff', () => go('map'), starRewardsAvailable()],
-      ['ship', 'Hangar', '#ff4fd8', () => go('hangar'), 0],
-      ['shop', 'Atelier', '#ff9d3c', () => go('shop'), 0],
-      ['chest', 'Coffres', '#ffd23f', () => go('chests'), (S.freeChests || []).length],
-      ['wheel', 'Roue', '#c35cff', () => go('wheel'), wc === null ? 1 : 0],
-      ['target', 'Missions', '#47ffa3', () => go('missions'), missionsBadge() + (S.daily.pending ? 1 : 0)],
-      ['trophy', 'Succès', '#ffe27a', () => go('achievements'), achBadge()],
-      ['gear', 'Réglages', '#9aa0d8', () => go('settings'), 0],
-    ].map(([ic, label, col, fn, n]) => h('button', { class: 'tile', style: `color:${col}`, onclick: () => { sfx.ui(); fn(); } }, h('span', { html: SVG[ic] }), h('span', { style: 'color:#dfe2ff' }, label), badge(n)));
-    const el = h('div', null, top, hero, h('div', { class: 'menu-grid' }, tiles), ticker());
+    const big = [
+      ['ship', 'Hangar', 'Vaisseaux · Drones · Améliorations', '#ff4fd8', () => go('hangar'), 0],
+      ['chest', 'Trésors', 'Coffres · Roue de la fortune', '#ffd23f', () => go('chests'), (S.freeChests || []).length + (wc === null ? 1 : 0)],
+      ['target', 'Quêtes', 'Cadeau · Missions · Succès', '#47ffa3', () => go('missions'), missionsBadge() + (S.daily.pending ? 1 : 0) + achBadge() + starRewardsAvailable()],
+    ].map(([ic, label, sub, col, fn, n]) => h('button', { class: 'bigtile', style: `--c:${col}`, onclick: () => { sfx.ui(); fn(); } }, h('span', { class: 'bi', html: SVG[ic] }), h('b', null, label), h('small', null, sub), badge(n)));
+    const el = h('div', null, top, hero, h('div', { class: 'bigtiles' }, big), ticker());
     return el;
   },
   enter() {

@@ -5,6 +5,7 @@ import { input } from '../engine/input.js';
 import { fx, updateParticles, drawParticles, clearParticles } from '../engine/particles.js';
 import { sprite, glow, orb } from '../engine/sprites.js';
 import { ENEMIES } from './enemies.js';
+import './enemies2.js';
 import { initPath, updatePath } from './paths.js';
 import { Player } from './player.js';
 import { Drone } from './drones.js';
@@ -139,7 +140,8 @@ export class Game {
     initPath(e);
     if (T.init) T.init(e, this, o);
     if (!e.max) e.max = e.hp;
-    if (e.elite) { e.hp *= 4; e.max = e.hp; e.scale = 1.25; e.lootMul = 5; this.stats.eliteSpawned++; }
+    if (T.cls !== 'xs' && !e.ground) e.scale = 1.2;
+    if (e.elite) { e.hp *= 4; e.max = e.hp; e.scale *= 1.25; e.lootMul = 5; this.stats.eliteSpawned++; }
     if (o.carrier) e.carrier = o.carrier;
     if (o.nova) e.nova = true;
     if (o.primary) this.stats.spawned++;
@@ -463,7 +465,7 @@ export class Game {
   }
   spawnSpec(s) {
     const ev = s.ev;
-    const e = this.addEnemy(ev.type, s.x, s.y, s.ground ? { k: 'ground' } : s.path, {
+    const e = this.addEnemy(s.type || ev.type, s.x, s.y, s.ground ? { k: 'ground' } : s.path, {
       primary: true, elite: ev.elite && s.first, carrier: s.carrier, nova: ev.nova && s.last, rich: ev.rich, giant: ev.giant,
     });
     if (e && ev.flee) e.flee = true;
@@ -794,9 +796,30 @@ export class Game {
     ctx.globalAlpha = 1;
   }
   drawEnemies(ground) {
+    // ombre portée + fond sombre (volume et lisibilité)
+    if (!ground) {
+      const sh = sprite('eshadow', 64, 64, (g) => { const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,8,0.75)'); gr.addColorStop(0.55, 'rgba(0,0,8,0.4)'); gr.addColorStop(1, 'rgba(0,0,8,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); }, 0.4);
+      baseT();
+      for (const e of this.enemies) {
+        if (e.dead || e.ground || e.alpha < 0.5) continue;
+        const r = e.r * e.scale * 1.25;
+        ctx.globalAlpha = 0.55; ctx.drawImage(sh.c, e.x - r + r * 0.35, e.y - r + r * 0.6, r * 2, r * 2);
+      }
+      ctx.globalAlpha = 1;
+    }
     ctx.globalCompositeOperation = 'lighter';
     this.drawGlows(ground);
     ctx.globalCompositeOperation = 'source-over';
+    {
+      const dk = sprite('edark', 64, 64, (g) => { const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(4,2,14,0.85)'); gr.addColorStop(0.7, 'rgba(4,2,14,0.5)'); gr.addColorStop(1, 'rgba(4,2,14,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); }, 0.4);
+      baseT();
+      for (const e of this.enemies) {
+        if (e.dead || e.ground !== ground || e.alpha < 0.5 || e.T.cls === 'xs') continue;
+        const r = e.r * e.scale * 1.18;
+        ctx.globalAlpha = 0.7 * e.alpha; ctx.drawImage(dk.c, e.x - r, e.y - r, r * 2, r * 2);
+      }
+      ctx.globalAlpha = 1;
+    }
     for (const e of this.enemies) {
       if (e.dead || e.ground !== ground) continue;
       if (e.y < -80 || e.y > view.h + 80) continue;
@@ -807,6 +830,17 @@ export class Game {
     }
     baseT();
     ctx.globalCompositeOperation = 'lighter';
+    const spec = sprite('espec', 32, 32, (g) => { const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.3, 'rgba(255,255,255,0.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 32, 32); }, 0.6);
+    for (const e of this.enemies) {
+      if (e.dead || e.ground !== ground || e.alpha < 0.5 || e.T.cls === 'xs' || e.type === 'mimique' || e.type === 'bulle') continue;
+      const r = e.r * e.scale, s2 = r * 0.42;
+      ctx.globalAlpha = 0.5 * e.alpha;
+      ctx.drawImage(spec.c, e.x - r * 0.34 - s2, e.y - r * 0.42 - s2, s2 * 2, s2 * 2);
+    }
+    ctx.globalAlpha = 1;
+    for (const e of this.enemies) {
+      if (e.type === 'obus' && !e.dead) { const p = 0.5 + 0.5 * Math.sin(this.t * 14); ctx.strokeStyle = rgba(this.pal.bullet, 0.5 + 0.4 * p); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(e.data.tx, e.data.ty, 14 + p * 4, 0, TAU); ctx.moveTo(e.data.tx - 20, e.data.ty); ctx.lineTo(e.data.tx + 20, e.data.ty); ctx.moveTo(e.data.tx, e.data.ty - 20); ctx.lineTo(e.data.tx, e.data.ty + 20); ctx.stroke(); }
+    }
     for (const e of this.enemies) {
       if (e.dead || e.ground !== ground) continue;
       if (e.flash > 0) { const s = glow('#ffffff', 16); const r = e.r * e.scale * 1.4; ctx.globalAlpha = 0.75; ctx.drawImage(s.c, e.x - r, e.y - r, r * 2, r * 2); }

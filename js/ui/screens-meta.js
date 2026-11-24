@@ -6,8 +6,8 @@ import { S, saveSoon, resetSave } from '../economy/save.js';
 import { SHIPS, SHIP_BY_ID, DRONES, DRONE_BY_ID, UPGRADES, RARITY, BOOSTS, CUR } from '../economy/data.js';
 import * as E from '../economy/economy.js';
 import { CHESTS, PITY, pityLeft, openChest, WHEEL, wheelCost, spinWheel, refreshWheel } from '../economy/gacha.js';
-import { MISSIONS, missionReward, claimMission, claimMissionBonus, MISSION_BONUS, calendarIndex } from '../economy/daily.js';
-import { ACHIEVEMENTS, achValue, achClaimed, achReward, achClaimable, claimAch } from '../economy/achievements.js';
+import { MISSIONS, missionReward, claimMission, claimMissionBonus, MISSION_BONUS, calendarIndex, missionsBadge } from '../economy/daily.js';
+import { ACHIEVEMENTS, achValue, achClaimed, achReward, achClaimable, claimAch, achBadge } from '../economy/achievements.js';
 import { SHIP_FX } from '../game/ships.js';
 import { drawDroneIcon } from '../game/drones.js';
 import { ctx, setT, baseT, view, setQuality, cam } from '../engine/renderer.js';
@@ -20,7 +20,11 @@ import { applyVolumes } from '../audio/audio.js';
 import { addShake, flash } from '../engine/renderer.js';
 import { dailyPopup } from './screens-main.js';
 
-const topbar = (title, extra) => h('div', { class: 'topbar' }, iconBtn(SVG.back, back, 'Retour'), h('div', { class: 'title' }, title), extra || curBar());
+const topbar = (title, extra) => h('div', { class: 'topbar' }, iconBtn(SVG.back, back, 'Retour'), title ? h('div', { class: 'title' }, title) : null, extra || curBar());
+function sectTabs(items, active) {
+  return h('div', { class: 'tabs secttabs' }, ...items.map(([k, label, fn, n]) => h('button', { class: 'tab' + (k === active ? ' on' : ''), onclick: () => { if (k !== active) { sfx.ui(); fn(); } } }, label, n ? h('span', { class: 'badge', style: 'position:static;display:inline-flex;margin-left:4px;transform:scale(.8)' }, n) : null)));
+}
+const treasureTabs = (a) => sectTabs([['chests', 'Coffres', () => go('chests', {}, false), (S.freeChests || []).length], ['wheel', 'Roue', () => go('wheel', {}, false), wheelCost() === null ? 1 : 0]], a);
 const deny = () => toast('Ressources insuffisantes', 'Jouez, ouvrez des coffres et réussissez des missions !', SVG.lock, '#ff4f6e');
 function buyBtn(cost, label, onBuy, cls = 'gold small') {
   if (!cost) return h('span', { class: 'tag', style: 'color:#47ffa3' }, 'MAX');
@@ -34,11 +38,9 @@ let hangarIdx = -1, hangarTab = 'ships';
 register('hangar', {
   build() {
     if (hangarIdx < 0) hangarIdx = Math.max(0, SHIPS.findIndex((s) => s.id === S.ship));
-    const tabs = h('div', { class: 'tabs', style: 'margin:4px 0 8px' },
-      h('button', { class: 'tab' + (hangarTab === 'ships' ? ' on' : ''), onclick: () => { hangarTab = 'ships'; sfx.ui(); refresh(); } }, 'Vaisseaux'),
-      h('button', { class: 'tab' + (hangarTab === 'drones' ? ' on' : ''), onclick: () => { hangarTab = 'drones'; sfx.ui(); refresh(); } }, 'Drones'));
-    const body = hangarTab === 'ships' ? shipsTab() : dronesTab();
-    return h('div', null, topbar('Hangar'), tabs, h('div', { class: 'scroll' }, body));
+    const tabs = sectTabs([['ships', 'Vaisseaux', () => { hangarTab = 'ships'; refresh(); }], ['drones', 'Drones', () => { hangarTab = 'drones'; refresh(); }], ['shop', 'Améliorations', () => { hangarTab = 'shop'; refresh(); }]], hangarTab);
+    const body = hangarTab === 'ships' ? shipsTab() : hangarTab === 'drones' ? dronesTab() : shopList();
+    return h('div', null, topbar('', curBar(['coins', 'crystals', 'gems', 'parts'])), tabs, h('div', { class: 'scroll' }, body));
   },
 });
 function shipsTab() {
@@ -140,8 +142,7 @@ function drawDroneCanvas(cv, id) {
 }
 
 // ================= ATELIER =================
-register('shop', {
-  build() {
+function shopList() {
     const list = h('div');
     for (const u of UPGRADES) {
       const l = S.up[u.id] || 0;
@@ -151,9 +152,9 @@ register('shop', {
       list.append(h('div', { class: 'item' + (l >= u.max ? ' done' : '') }, h('div', { class: 'ico', html: SVG[u.icon] || SVG.gear, style: 'color:#ff9d3c' }),
         h('div', { class: 'txt' }, h('b', null, u.name), h('span', null, u.desc), u.max > 1 ? pips(l, u.max) : null), b));
     }
-    return h('div', null, topbar('Atelier'), h('p', { class: 'muted center', style: 'margin:0 0 6px' }, 'Améliorations permanentes pour tous vos vaisseaux.'), h('div', { class: 'scroll' }, list));
-  },
-});
+    return [h('p', { class: 'muted center', style: 'margin:0 0 6px' }, 'Améliorations permanentes pour tous vos vaisseaux.'), list];
+}
+register('shop', { build() { hangarTab = 'shop'; setTimeout(() => go('hangar', {}, false), 0); return h('div'); } });
 
 // ================= COFFRES =================
 register('chests', {
@@ -173,7 +174,7 @@ register('chests', {
       h('div', { class: 'row', style: 'gap:4px;margin-top:6px;flex-wrap:wrap' }, ...free.slice(0, 12).map((c) => h('img', { src: iconURL('chest_' + c, 48), style: 'width:30px' })))) : null;
     const odds = h('div', { class: 'odds' }, h('b', null, ''), ...['neon', 'prism', 'astral'].map((id) => h('b', { style: `color:${CHESTS[id].color}` }, CHESTS[id].name.replace('Coffre ', ''))));
     RARITY.forEach((r, i) => { odds.append(h('b', { style: `color:${r.color}` }, r.name)); for (const id of ['neon', 'prism', 'astral']) { const o = CHESTS[id].odds; odds.append(h('span', null, (o[i] / o.reduce((a, b) => a + b, 0) * 100).toFixed(1) + ' %')); } });
-    return h('div', null, topbar('Coffres'), h('div', { class: 'scroll' },
+    return h('div', null, topbar('Trésors'), treasureTabs('chests'), h('div', { class: 'scroll' },
       freeBox, row,
       h('div', { class: 'panel', style: 'margin-top:10px' }, h('div', { class: 'subtitle', style: 'margin-top:0' }, 'Garantie anti-malchance'),
         h('div', { class: 'pity', html: `Objet <b style="color:${RARITY[1].color}">Rare ou mieux</b> garanti dans <b>${pl.r}</b> ouverture(s)<br>Objet <b style="color:${RARITY[2].color}">Épique ou mieux</b> garanti dans <b>${pl.e}</b><br>Objet <b style="color:${RARITY[3].color}">Légendaire</b> garanti dans <b>${pl.l}</b>` })),
@@ -289,7 +290,7 @@ register('wheel', {
       st.t0 = performance.now(); st.spinning = true; st.last = -1;
       st.done = () => { res.apply(); const jackpot = WHEEL[res.idx].label === 'JACKPOT'; if (jackpot) { flash('#ffffff', 0.7); sfx.chestOpen(3); } rewardPopup(jackpot ? 'JACKPOT !' : 'Gagné !', res.bundle, () => refresh()); };
     }, { onDeny: deny });
-    return h('div', null, topbar('Roue de la fortune'), stage,
+    return h('div', null, topbar('Trésors'), treasureTabs('wheel'), stage,
       h('p', { class: 'muted center small' }, `Un tour gratuit par jour, puis jusqu’à 3 tours payés en pièces. Tours payés aujourd’hui : ${S.wheel.paid}/3`), b);
   },
 });
@@ -298,10 +299,10 @@ register('wheel', {
 let missionTab = 'daily';
 register('missions', {
   build() {
-    const tabs = h('div', { class: 'tabs', style: 'margin:4px 0 8px' },
-      ...[['daily', 'Missions'], ['stars', 'Étoiles']].map(([k, l]) => h('button', { class: 'tab' + (missionTab === k ? ' on' : ''), onclick: () => { missionTab = k; sfx.ui(); refresh(); } }, l)));
+    const tabs = sectTabs([['daily', 'Missions', () => { missionTab = 'daily'; refresh(); }, missionsBadge() + (S.daily.pending ? 1 : 0)], ['stars', 'Étoiles', () => { missionTab = 'stars'; refresh(); }, E.starRewardsAvailable()], ['ach', 'Succès', () => { missionTab = 'ach'; refresh(); }, achBadge()]], missionTab);
     const out = [];
-    if (missionTab === 'daily') {
+    if (missionTab === 'ach') out.push(...achList());
+    else if (missionTab === 'daily') {
       out.push(h('div', { class: 'panel glow-gold row' }, h('span', { html: SVG.gift, style: 'width:34px;color:#ffd23f' }), h('div', { style: 'flex:1' }, h('b', null, 'Cadeau de connexion'), h('div', { class: 'muted small' }, `Série : ${S.daily.streak} jour(s) · jour ${calendarIndex() + 1}/7`)), btn(S.daily.pending ? 'Récupérer' : 'Voir', S.daily.pending ? 'gold small pulse' : 'ghost small', () => dailyPopup())));
       out.push(h('div', { class: 'subtitle' }, 'Missions du jour'));
       S.missions.list.forEach((m, i) => {
@@ -326,13 +327,12 @@ register('missions', {
       out.push(h('div', { class: 'panel' }, h('div', { class: 'subtitle', style: 'margin-top:0' }, 'Comment gagner des étoiles'),
         h('p', { class: 'small' }, '★ Terminer le niveau · ★ Détruire au moins 80 % des ennemis (ou battre le boss vite) · ★ Ne pas perdre plus d’un cœur. Chaque difficulté a ses propres étoiles.')));
     }
-    return h('div', null, topbar('Missions'), tabs, h('div', { class: 'scroll' }, out));
+    return h('div', null, topbar('Quêtes'), tabs, h('div', { class: 'scroll' }, out));
   },
 });
 
 // ================= SUCCÈS =================
-register('achievements', {
-  build() {
+function achList() {
     const list = h('div');
     const sorted = ACHIEVEMENTS.slice().sort((a, b) => (achClaimable(b) ? 1 : 0) - (achClaimable(a) ? 1 : 0));
     for (const a of sorted) {
@@ -344,9 +344,9 @@ register('achievements', {
       list.append(h('div', { class: 'item' + (achClaimable(a) ? ' done' : '') }, h('div', { class: 'ico', html: SVG.trophy, style: `color:${['#9aa0d8', '#5dffa0', '#3dbdff', '#c35cff', '#ffc23d', '#ffffff'][t]}` }),
         h('div', { class: 'txt' }, h('b', null, `${a.name} ${'★'.repeat(t)}`), h('span', null, a.text(goal)), done ? null : rewardRow(achReward(t)), done ? null : h('div', { class: 'bar gold' }, h('i', { style: `width:${Math.min(100, (v / goal) * 100)}%` }))), b));
     }
-    return h('div', null, topbar('Succès'), h('div', { class: 'scroll' }, list));
-  },
-});
+    return [list];
+}
+register('achievements', { build() { missionTab = 'ach'; setTimeout(() => go('missions', {}, false), 0); return h('div'); } });
 
 // ================= RÉGLAGES =================
 register('settings', {

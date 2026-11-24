@@ -6,6 +6,7 @@ export const CLS = {
   globule: 's', dardeur: 's', tournoyeur: 's', larve: 'xs', scindeur: 'm', nautile: 'm', spectre: 'm', glouton: 'm',
   meduse: 'm', mante: 'm', pondeuse: 'l', mimique: 's', pollen: 's', serpent: 'snake', spore: 's', cuirasse: 'm',
   raie: 'm', phasme: 'm', asteroide: 'm', cristallier: 'm', bulle: 's',
+  canonnier: 's', mortier: 's', lanceur: 'm', emissile: 'xs', obus: 'xs',
 };
 const FORMS = {
   s: ['line', 'column', 'vee', 'pincer', 'circle', 'rain', 'grid', 'sides', 'zig', 'arc', 'column', 'loop'],
@@ -167,8 +168,22 @@ function buildWaves(def, rng, forced, full) {
   const events = W.theme.events;
   tl.push({ t: 0.3, kind: 'banner' });
   tl.push({ t: 1.4, kind: 'radio', key: def.trait ? 'trait' : 'start' });
+  const armadas = [];
+  if (full && def.L >= 3) armadas.push(Math.floor(nW * 0.42));
+  if (full && def.L >= 25) armadas.push(Math.floor(nW * 0.8));
   for (let w = 0; w < nW; w++) {
     const intensity = nW > 1 ? w / (nW - 1) : 1;
+    if (armadas.includes(w)) {
+      const smalls = pool.filter((x) => CLS[x] === 's');
+      const front = smalls.length ? rng.pick(smalls) : 'globule';
+      const rows = def.L < 12 ? 2 : prog > 80 ? 4 : 3;
+      const cols = prog > 140 ? 6 : 5;
+      const types = [front, rng.pick(['canonnier', 'mortier']), rng.pick(['lanceur', 'canonnier']), rng.pick(['mortier', 'lanceur'])].slice(0, rows);
+      tl.push({ t, kind: 'wave', form: 'armada', type: front, types, rows, cols, n: rows * cols, stay: 14 + rows, seed: rng.int(1, 1e9), carrier: true });
+      tl.push({ t: t + 0.2, kind: 'radio', key: 'armada' });
+      t += 9;
+      continue;
+    }
     const type = pickType(pool, lastT, rng, w === 0 && full);
     const cls = CLS[type];
     const form = pickForm(cls === 'xs' ? 's' : cls, lastF, rng);
