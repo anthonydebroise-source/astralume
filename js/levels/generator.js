@@ -153,7 +153,7 @@ function buildWaves(def, rng, forced, full) {
   if (def.L <= 2) pool = ['globule', 'dardeur', 'tournoyeur'];
   else if (def.L <= 6) pool = pool.filter((t) => !['pondeuse', 'serpent', 'phasme', 'cuirasse'].includes(t)).concat(['globule']);
   if (def.trait === 'tresor') pool.push('mimique');
-  const nW = forced || (7 + Math.min(5, Math.floor(prog / 45)) + rng.int(0, 1) + (def.trait === 'ruee' ? 2 : 0));
+  const nW = forced || (10 + Math.min(5, Math.floor(prog / 40)) + rng.int(0, 2) + (def.trait === 'ruee' ? 2 : 0));
   const gap = def.trait === 'ruee' ? 0.7 : 1;
   let t = 2.6;
   const lastT = [], lastF = [];

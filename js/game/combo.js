@@ -59,7 +59,7 @@ export class Constellation {
     const dmg = 45 * g.D.hp;
     g.forTargets((t) => { if (inside(poly, t.x, t.y)) g.hitTarget(t, t.isPart ? t.max * 0.035 : dmg, t.x, t.y); });
     g.cancelBullets({ poly, test: (x, y) => inside(poly, x, y) }, true);
-    const nc = 2 + Math.floor(Math.random() * 3);
+    const nc = 1 + (Math.random() < 0.3 ? 1 : 0);
     for (let i = 0; i < nc; i++) g.dropPickup('crystals', cx + rand(-20, 20), cy + rand(-20, 20));
     g.dropCoins(cx, cy, 12 * g.D.loot);
     g.player.gauge = Math.min(1, g.player.gauge + 0.12);

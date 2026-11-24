@@ -236,7 +236,7 @@ export class Game {
       const r = Math.random();
       this.dropPickup(r < 0.4 ? 'energy' : r < 0.6 ? 'shield' : r < 0.75 ? 'magnet' : r < 0.85 ? 'heart' : 'power', e.x, e.y);
     }
-    if (Math.random() < 0.025 + this.diff * 0.02) this.dropPickup('crystals', e.x, e.y);
+    if (Math.random() < 0.012 + this.diff * 0.02) this.dropPickup('crystals', e.x, e.y);
     if (this.diff === 2 && Math.random() < 0.004) this.dropPickup('gems', e.x, e.y);
     if (e.carrier) this.dropPickup(e.carrier, e.x, e.y);
     if (e.nova) this.dropPickup('nova', e.x, e.y);
@@ -405,7 +405,7 @@ export class Game {
     if (this.state !== 'play') return;
     this.dirT += dt;
     const next = this.tl[this.ti];
-    if (next && this.spawnQ.length === 0 && this.flyerCount() === 0 && !this.boss && next.t - this.dirT > 1.0 && this.dirT > 2) this.dirT = next.t - 1.0;
+    if (next && this.spawnQ.length === 0 && this.flyerCount() === 0 && !this.boss && next.t - this.dirT > 1.6 && this.dirT > 2) this.dirT = next.t - 1.6;
     while (this.ti < this.tl.length && this.tl[this.ti].t <= this.dirT) this.exec(this.tl[this.ti++]);
     for (let i = this.spawnQ.length - 1; i >= 0; i--) {
       const s = this.spawnQ[i];
