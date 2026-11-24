@@ -9,6 +9,11 @@ La Nuée, une faune bioluminescente, dévore la lumière des étoiles : vous êt
 - Économie complète : pièces, cristaux, gemmes, composants, coffres, roue, missions, succès, cadeau quotidien
 - Aucune publicité, aucun achat. Graphismes et sons entièrement générés par le code (aucune image ni aucun son externe).
 
+## Adresse du jeu
+
+Une fois GitHub Pages activé (voir ci-dessous), le jeu est disponible à l'adresse :
+**https://anthonydebroise-source.github.io/astralume/**
+
 ## Héberger le jeu gratuitement (GitHub Pages)
 
 1. Créez un compte sur https://github.com (gratuit).
@@ -54,6 +59,15 @@ python3 -m http.server 8000
 
 Puis ouvrez http://localhost:8000 (souris ou doigt pour piloter, barre d'espace pour la spéciale).
 La page `dev-play.html?L=10&ship=lance` lance directement un niveau (outil de développement).
+
+## Menus
+
+- **Jouer** : lance le prochain niveau (choix de la difficulté et des boosts).
+- **Carte des mondes** : les 32 mondes et leurs 10 niveaux.
+- **Hangar** : vaisseaux, drones et améliorations permanentes.
+- **Trésors** : coffres et roue de la fortune.
+- **Quêtes** : cadeau du jour, missions, étoiles et succès.
+- **Engrenage** (en haut à droite) : son, contrôles, qualité graphique.
 
 ## Commandes de jeu
 
