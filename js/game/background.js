@@ -216,9 +216,10 @@ export class Background {
     const toY = (y) => Y0 + CH - y; // local -> global
     const lights = [];
     // Base
-    const gr = g.createLinearGradient(0, 0, view.w, CH);
-    const base = kind === 'ice' ? mixHex(P.g1, '#a8c8e8', 0.25) : kind === 'dunes' ? mixHex(P.g1, '#8a6a3a', 0.35) : P.g0;
-    gr.addColorStop(0, base); gr.addColorStop(1, darken(base, 0.25));
+    // dégradé uniquement horizontal : aucune couture entre deux morceaux de terrain
+    const gr = g.createLinearGradient(0, 0, view.w, 0);
+    const base = kind === 'ice' ? mixHex(P.g1, '#a8c8e8', 0.25) : kind === 'dunes' ? mixHex(P.g1, '#8a6a3a', 0.35) : kind === 'rock' ? mixHex(P.g1, P.g2, 0.3) : P.g0;
+    gr.addColorStop(0, darken(base, 0.3)); gr.addColorStop(0.5, base); gr.addColorStop(1, darken(base, 0.3));
     g.fillStyle = gr; g.fillRect(0, 0, view.w, CH);
     // Détails par morceau (et voisins pour la continuité)
     for (let kk = k - 1; kk <= k + 1; kk++) {
@@ -340,9 +341,30 @@ export class Background {
         break;
       }
       default: {
-        for (let i = 0; i < 14; i++) { const x = r.range(0, W), y = r.range(0, CH) + oy, rr = r.range(10, 40); g.fillStyle = rgba(darken(P.g0, 0.45), 0.8); g.beginPath(); g.arc(x, y, rr, 0, TAU); g.fill(); g.strokeStyle = rgba(lighten(P.g1, 0.3), 0.5); g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, rr, Math.PI * 0.9, Math.PI * 1.7); g.stroke(); }
+        // plaques rocheuses
+        for (let i = 0; i < 10; i++) {
+          const x = r.range(0, W), y = r.range(0, CH) + oy, rr = r.range(30, 70), n = r.int(6, 8);
+          g.beginPath(); for (let j = 0; j < n; j++) { const a = (j / n) * TAU; g.lineTo(x + Math.cos(a) * rr * r.range(0.7, 1), y + Math.sin(a) * rr * r.range(0.6, 0.9)); } g.closePath();
+          g.fillStyle = rgba(lighten(P.g1, r.range(0, 0.18)), 0.55); g.fill(); g.strokeStyle = rgba(lighten(P.g2, 0.3), 0.35); g.lineWidth = 1; g.stroke();
+        }
+        // cratères en relief (bord éclairé en haut à gauche, ombre en bas à droite)
+        for (let i = 0; i < 12; i++) {
+          const x = r.range(0, W), y = r.range(0, CH) + oy, rr = r.range(8, 34);
+          const gr = g.createRadialGradient(x + rr * 0.25, y + rr * 0.25, rr * 0.1, x, y, rr);
+          gr.addColorStop(0, rgba(darken(P.g0, 0.7), 0.95)); gr.addColorStop(0.8, rgba(darken(P.g0, 0.4), 0.8)); gr.addColorStop(1, rgba(P.g0, 0));
+          g.fillStyle = gr; g.beginPath(); g.arc(x, y, rr, 0, TAU); g.fill();
+          g.strokeStyle = rgba(lighten(P.g2, 0.45), 0.6); g.lineWidth = 1.6; g.beginPath(); g.arc(x, y, rr * 0.92, Math.PI * 0.85, Math.PI * 1.75); g.stroke();
+          g.strokeStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.arc(x, y, rr * 0.92, Math.PI * 1.85, Math.PI * 2.7); g.stroke();
+        }
+        // veines minérales lumineuses et éclats de cristal
         g.globalCompositeOperation = 'lighter';
-        for (let i = 0; i < 6; i++) { const x = r.range(0, W), y = r.range(0, CH) + oy; g.fillStyle = rgba(P.deco, 0.8); g.beginPath(); g.arc(x, y, r.range(1.5, 3), 0, TAU); g.fill(); L(x, y, 16, P.deco); }
+        for (let i = 0; i < 4; i++) { let x = r.range(20, W - 20), y = r.range(0, CH) + oy; g.strokeStyle = rgba(P.deco, 0.5); g.lineWidth = 1.4; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 7; j++) { x += r.range(-18, 18); y += r.range(-18, 18); g.lineTo(x, y); } g.stroke(); }
+        for (let i = 0; i < 8; i++) {
+          const x = r.range(0, W), y = r.range(0, CH) + oy, h = r.range(5, 11);
+          g.fillStyle = rgba(r.chance(0.5) ? P.deco : P.deco2, 0.85);
+          g.beginPath(); g.moveTo(x, y - h); g.lineTo(x + h * 0.35, y); g.lineTo(x, y + h * 0.4); g.lineTo(x - h * 0.35, y); g.closePath(); g.fill();
+          L(x, y, 18, P.deco);
+        }
         g.globalCompositeOperation = 'source-over';
       }
     }
