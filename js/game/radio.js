@@ -1,0 +1,38 @@
+// Messages radio de l'opératrice Lyra et de l'Archive (petits messages qui défilent)
+export const RADIO = {
+  start: ['Signatures organiques en approche. Bonne chasse, Allumeur.', 'Ici Lyra. Je capte la Nuée droit devant.', 'Les étoiles comptent sur toi. Feu à volonté !', 'Réacteurs au vert. La Nuée ne nous attend pas.', 'Secteur hostile. Rallume tout ce qui brille.'],
+  trait: ['Ce secteur a quelque chose de particulier… reste vigilant.', 'Conditions inhabituelles détectées. Adapte-toi !'],
+  chatter: ['Enchaîne les éliminations pour tracer une constellation !', 'Astuce : déclenche ta spéciale pile sur le temps pour un coup PARFAIT.', 'Les pièces dorées valent plus que les cuivrées. Ramasse tout !', 'Les élites dorées transportent des gemmes.', 'Les Gloutons grossissent en mangeant leurs congénères… et lâchent plus de butin.', 'Les Pollinisateurs soignent les autres. Vise-les en premier !', 'Ce que tu ramasses reste à toi, même si tu tombes.', 'Les fragments de boss qui tombent valent de l’or : attrape-les !', 'Archive : « Avant la Nuée, ce ciel comptait dix mille soleils. »', 'Archive : « On dit que la Nuée chante quand elle a faim. »', 'Tu sens ce rythme ? La Nuée attaque au tempo de la musique.', 'Hypernova en vue ? Attrape-la, ça décoiffe.'],
+  hurt: ['Coque touchée ! Tiens bon !', 'Aïe ! Esquive, esquive !', 'Dégâts détectés. Ramasse un cœur si tu en vois un.'],
+  boss: ['Alerte ! Signature colossale droit devant !', 'Ça, c’est gros. Vraiment gros. Vise ses parties une par une.', 'Un gardien de la Nuée… détruis ses appendices pour l’exposer !'],
+  core: ['Son noyau est à nu ! Concentre ton feu !', 'Le cœur est exposé, c’est maintenant ou jamais !'],
+  constel: ['Magnifique ! Une constellation rallumée !', 'Tu dessines dans le ciel, pilote !'],
+  coins: ['Une pluie de pièces ! Ramasse tout ce que tu peux !', 'Jackpot cosmique en approche. Attention aux faux trésors…'],
+  bonus: ['Champ d’astéroïdes riches en cristaux. Mine-les !', 'Ces rochers regorgent de cristaux. Fais-les éclater !'],
+  challenge: ['Défi spécial. Montre-leur ce que vaut un Allumeur.', 'Conditions extrêmes. Récompense à la hauteur.'],
+  ev_meteors: ['Pluie de météores ! Suis les lignes rouges !'],
+  ev_goldcomet: ['Une comète dorée ! Chaque tir en arrache des pièces !'],
+  ev_eclipse: ['Éclipse… Je ne vois plus que les lueurs. Pièces ×1,5 dans le noir !'],
+  ev_gravity: ['Puits gravitationnel ! Il avale les tirs… et recrache des pièces.'],
+  ev_leviathan: ['Ne tire pas… c’est un Léviathan pacifique. Il sème des cristaux.'],
+  ev_storm: ['Tempête ionique ! Évite les colonnes qui s’illuminent !'],
+  ev_rift: ['Une fissure aux trésors s’ouvre ! Vite !'],
+  ev_crystalbubble: ['Une bulle de cristal… il y a quelque chose dedans !'],
+  ev_supernova: ['Une étoile explose au loin ! L’onde de choc arrive !'],
+  ev_swarm: ['Un banc de lumiflèches migre. Elles laissent des pièces dans leur sillage.'],
+};
+export function radioLine(key) { const a = RADIO[key]; return a ? a[Math.floor(Math.random() * a.length)] : null; }
+export const TICKER = [
+  '<b>RADIO ASTRALE</b> — Le Récif Stellaire signale une pluie de cristaux record.',
+  '<b>ARCHIVE</b> — Chaque boss vaincu rallume une étoile sur la carte.',
+  '<b>ASTUCE</b> — Touchez l’écran avec un second doigt pour lancer la spéciale.',
+  '<b>LYRA</b> — Les coffres garantissent un objet rare après quelques ouvertures malchanceuses.',
+  '<b>MÉTÉO</b> — Éclipses fréquentes dans les Marais Phosphore : pièces ×1,5 dans le noir.',
+  '<b>ASTUCE</b> — Les modes Difficile et Cauchemar rapportent gemmes et composants.',
+  '<b>ARCHIVE</b> — Les Gloutons ont été vus avalant des comètes entières.',
+  '<b>LYRA</b> — Reviens chaque jour : la série de connexion fait grimper les cadeaux.',
+  '<b>ASTUCE</b> — Spéciale déclenchée pile sur le temps = coup PARFAIT (+35 %).',
+  '<b>RADIO ASTRALE</b> — Un Léviathan pacifique a été aperçu près de la Nébuleuse Natale.',
+  '<b>ASTUCE</b> — Enchaînez 8 éliminations pour embraser une constellation.',
+  '<b>ARCHIVE</b> — Les pièces tombées d’un boss se récupèrent en vol. Risqué, mais lucratif.',
+];

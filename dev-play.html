@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="stylesheet" href="css/style.css"></head>
+<body><div id="stage"><canvas id="game"></canvas><div id="ui"></div></div><div id="safe-probe"></div>
+<script type="module">
+import { initRenderer, ctx, view, updateCam, trackFrame } from './js/engine/renderer.js';
+import { initInput, endFrameInput } from './js/engine/input.js';
+import { load, S } from './js/economy/save.js';
+import { buildLevel } from './js/levels/generator.js';
+import { Game } from './js/game/game.js';
+import { initAudioUnlock, setAudioSettings } from './js/audio/audio.js';
+load();
+initRenderer(); initInput(); initAudioUnlock(); setAudioSettings(S.settings);
+const q = new URLSearchParams(location.search);
+const L = +(q.get('L') || 1), d = +(q.get('d') || 0);
+const ship = q.get('ship') || 'etincelle';
+if (!S.ships[ship]) S.ships[ship] = { own: 1, pw: 5, rt: 3, sp: 3, m: { dmg: 0, rate: 0, spec: 0 }, aw: 0 };
+const drones = (q.get('drones') || '').split(',').filter(Boolean);
+for (const id of drones) S.drones[id] = { own: 1, lvl: 3, m: 0 };
+const def = buildLevel(L, d);
+window.def = def;
+const g = new Game(def, { ship, drones, boosts: {} });
+window.g = g;
+g.onEnd = (r) => { window.result = r; };
+g.onDeath = () => { window.died = true; g.revive(); };
+if (q.get('ev')) setTimeout(() => g.events.start(q.get('ev')), 1500);
+if (q.get('boss')) setTimeout(() => g.startBoss({ arch: q.get('boss'), mini: q.get('mini') === '1', tier: +(q.get('tier') || 0), name: 'Test' }), 500);
+if (q.get('god')) setInterval(() => { g.player.inv = 1; g.player.wlvl = 6; }, 200);
+if (q.get('fast')) setInterval(() => { if (g.boss) for (const p of g.boss.parts) if (p.alive && g.boss.targetable(p)) { g.boss.hit(p, p.max * 0.25, p.x, p.y); break; } }, 700);
+let last = performance.now();
+window.errors = [];
+function loop(t) {
+  const dt = Math.min(0.05, (t - last) / 1000); last = t;
+  try { g.update(dt); updateCam(dt); g.draw(); } catch (e) { window.errors.push(String(e.stack || e)); console.error(e); }
+  endFrameInput();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script></body></html>
