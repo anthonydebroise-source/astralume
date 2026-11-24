@@ -27,21 +27,36 @@ import { drawPart } from './art.js';
 const BK = {
   orb: { r: 4.5 }, big: { r: 8 }, needle: { r: 3, orient: 1 }, petal: { r: 4, orient: 1 }, shard: { r: 3.4, orient: 1 }, drop: { r: 4, orient: 1, grav: 150 },
 };
+// Projectile ennemi « danger » : halo coloré, anneau sombre, cœur blanc (jamais confondu avec une pièce)
+function dangerOrb(color, r) {
+  const R = r * 2.4;
+  return sprite('dorb' + color + r, R * 2, R * 2, (g) => {
+    g.translate(R, R);
+    let gr = g.createRadialGradient(0, 0, r * 0.5, 0, 0, R);
+    gr.addColorStop(0, rgba(color, 0.75)); gr.addColorStop(0.45, rgba(color, 0.25)); gr.addColorStop(1, rgba(color, 0));
+    g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.fill();
+    g.fillStyle = color; g.beginPath(); g.arc(0, 0, r, 0, TAU); g.fill();
+    g.strokeStyle = 'rgba(25,0,18,0.95)'; g.lineWidth = r * 0.28; g.beginPath(); g.arc(0, 0, r * 0.98, 0, TAU); g.stroke();
+    gr = g.createRadialGradient(-r * 0.15, -r * 0.15, 0, 0, 0, r * 0.62);
+    gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.7, '#ffffff'); gr.addColorStop(1, rgba(color, 1));
+    g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r * 0.6, 0, TAU); g.fill();
+  });
+}
 function ebSprite(kind, color) {
-  if (kind === 'orb') return orb(color, 4.6);
-  if (kind === 'big') return orb(color, 8);
+  if (kind === 'orb') return dangerOrb(color, 4.8);
+  if (kind === 'big') return dangerOrb(color, 8);
   return sprite('eb' + kind + color, 30, 30, (g) => {
     g.translate(15, 15);
     const gr = g.createRadialGradient(0, 0, 0, 0, 0, 14);
     gr.addColorStop(0, rgba(color, 0.7)); gr.addColorStop(1, rgba(color, 0));
     g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, 8, 14, 0, 0, TAU); g.fill();
-    g.fillStyle = '#ffffff'; g.strokeStyle = color; g.lineWidth = 1.4;
+    g.fillStyle = '#ffffff'; g.strokeStyle = 'rgba(25,0,18,0.95)'; g.lineWidth = 2.6;
     g.beginPath();
     if (kind === 'needle') g.ellipse(0, 0, 2.4, 8, 0, 0, TAU);
     else if (kind === 'petal') { g.moveTo(0, -8); g.quadraticCurveTo(6, 0, 0, 8); g.quadraticCurveTo(-6, 0, 0, -8); }
     else if (kind === 'shard') { g.moveTo(0, -8); g.lineTo(3.4, 0); g.lineTo(0, 8); g.lineTo(-3.4, 0); g.closePath(); }
     else { g.arc(0, 2, 4, 0, Math.PI); g.lineTo(0, -8); g.closePath(); }
-    g.fill(); g.stroke();
+    g.stroke(); g.fill(); g.strokeStyle = color; g.lineWidth = 1.2; g.stroke();
   });
 }
 function pbSprite(kind, color) {

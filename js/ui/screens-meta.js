@@ -55,7 +55,7 @@ function shipsTab() {
     ctx.strokeStyle = sh.color; ctx.globalAlpha = 0.35; ctx.lineWidth = 1;
     for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(cx, cy + 60, 70 + i * 16, 14 + i * 4, 0, 0, TAU); ctx.stroke(); }
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-    setT(cx, cy + Math.sin(t * 2) * 5, 3.2);
+    setT(cx, cy + Math.sin(t * 2) * 5, 3);
     if (!own) ctx.globalAlpha = 0.45;
     SHIP_FX[sh.id].draw(ctx, t, sh.color, sh.color2);
     ctx.globalAlpha = 1; baseT();
@@ -246,7 +246,7 @@ function itemIcon(item, t) {
   const c = ctx;
   if (item.kind === 'cur') ICONS[item.cur](c, 14);
   else if (item.kind === 'boost') ICONS['boost_' + item.boost](c, 14);
-  else if (item.kind === 'ship') { c.scale(0.9, 0.9); SHIP_FX[item.ship].draw(c, t, SHIP_BY_ID[item.ship].color, SHIP_BY_ID[item.ship].color2); }
+  else if (item.kind === 'ship') { c.scale(0.8, 0.8); SHIP_FX[item.ship].draw(c, t, SHIP_BY_ID[item.ship].color, SHIP_BY_ID[item.ship].color2); }
   else if (item.kind === 'drone' || item.kind === 'dmodule') { c.scale(1.4, 1.4); drawDroneIcon(c, item.drone, t); }
   else if (item.kind === 'awaken') ICONS.nova(c, 15);
   else { c.rotate(t); c.fillStyle = '#ffffff'; c.strokeStyle = item.stat === 'dmg' ? '#ff4f6e' : item.stat === 'rate' ? '#38f2ff' : '#ffd23f'; c.lineWidth = 2.5; c.beginPath(); for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU; c.lineTo(Math.cos(a) * 13, Math.sin(a) * 13); } c.closePath(); c.fill(); c.stroke(); c.fillStyle = c.strokeStyle; c.beginPath(); c.arc(0, 0, 5, 0, TAU); c.fill(); }

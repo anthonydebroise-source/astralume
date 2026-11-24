@@ -43,7 +43,7 @@ export const THEMES = [
 const VETERANS = ['nautile', 'spectre', 'phasme', 'cuirasse', 'raie', 'mante', 'glouton', 'meduse', 'cristallier', 'mimique', 'pondeuse', 'scindeur', 'pollen'];
 
 function bulletHue(h, h2) {
-  const cands = [330, 18, 72, 0, 305, 45, 160];
+  const cands = [330, 350, 0, 305, 280, 318];
   let best = 330, bd = -1;
   const cd = (a, b) => { const d = Math.abs(((a - b) % 360 + 360) % 360); return Math.min(d, 360 - d); };
   for (const c of cands) { const d = Math.min(cd(c, h), cd(c, h2)); if (d > bd) { bd = d; best = c; } }
@@ -61,7 +61,7 @@ export function makePalette(th, h) {
     liquid: hslHex(h2, 100, 58), deco: hslHex(h2, 95, 62), deco2: hslHex(h3, 95, 64),
     enemy: hslHex(he, 82, 55), enemy2: hslHex((he + 150) % 360, 90, 62), eglow: hslHex(he, 100, 66), edark: hslHex(he, 70, 18),
     accent: hslHex(h3, 100, 62),
-    bullet: hslHex(bh, 100, 62), bullet2: hslHex((bh + 25) % 360, 100, 70),
+    bullet: hslHex(bh, 100, 60), bullet2: hslHex((bh + 340) % 360, 100, 68),
   };
 }
 

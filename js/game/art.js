@@ -100,8 +100,11 @@ export function drawCoin(g, r, tier = 1) {
   const base = ['#ffb347', '#ffd23f', '#fff1a0'][tier] || '#ffd23f';
   let gr = g.createRadialGradient(-r * 0.3, -r * 0.4, r * 0.1, 0, 0, r);
   gr.addColorStop(0, lighten(base, 0.7)); gr.addColorStop(0.5, base); gr.addColorStop(1, darken(base, 0.45));
-  g.fillStyle = gr; polyPath(g, 8, r, Math.PI / 8); g.fill();
-  g.strokeStyle = darken(base, 0.55); g.lineWidth = r * 0.12; g.stroke();
+  polyPath(g, 8, r, Math.PI / 8);
+  g.strokeStyle = 'rgba(40,20,0,0.9)'; g.lineWidth = r * 0.3; g.stroke();
+  g.fillStyle = gr; g.fill();
+  g.strokeStyle = lighten(base, 0.5); g.lineWidth = r * 0.1; g.stroke();
+  polyPath(g, 8, r * 0.74, Math.PI / 8); g.strokeStyle = darken(base, 0.35); g.lineWidth = r * 0.07; g.stroke();
   g.fillStyle = lighten(base, 0.75);
   starPath(g, 4, r * 0.55, r * 0.18, 0, false); g.fill();
   g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = r * 0.08;

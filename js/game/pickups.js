@@ -6,9 +6,9 @@ import { ICONS, drawCoin, drawNovaStar } from './art.js';
 
 export const PK = {
   coin: { r: 6, glow: '#ffcf3f' },
-  crystals: { r: 7, glow: '#38f2ff' },
-  gems: { r: 8, glow: '#ff4fd8' },
-  parts: { r: 8, glow: '#ff9d3c' },
+  crystals: { r: 8.5, glow: '#38f2ff' },
+  gems: { r: 9.5, glow: '#ff4fd8' },
+  parts: { r: 9, glow: '#ff9d3c' },
   power: { r: 11, glow: '#ff9d3c' },
   shield: { r: 11, glow: '#38f2ff' },
   magnet: { r: 11, glow: '#ff4f6e' },
@@ -18,7 +18,7 @@ export const PK = {
 };
 
 function coinSprite(tier) {
-  const r = [4.6, 6, 7.8][tier];
+  const r = [6.6, 8.2, 10.2][tier];
   return sprite('coin' + tier, r * 2 + 2, r * 2 + 2, (g, w) => { g.translate(w / 2, w / 2); drawCoin(g, r, tier); });
 }
 function iconSprite(kind, r) {
@@ -42,7 +42,7 @@ export function updatePickups(g, dt) {
     if (p.alive && !k.attract) {
       const d2 = dist2(k.x, k.y, p.x, p.y);
       const r = PK[k.kind].r > 9 ? mag * 0.75 : mag;
-      if (d2 < r * r || (global && k.kind !== 'nova' && k.age > 0.25)) k.attract = true;
+      if (d2 < r * r || (global && k.kind !== 'nova' && k.age > 0.25) || (k.age > 2.5 && k.kind !== 'nova')) k.attract = true;
     }
     if (k.attract && p.alive) {
       const a = angTo(k.x, k.y, p.x, p.y);
@@ -56,7 +56,7 @@ export function updatePickups(g, dt) {
     }
     if (g.well) { const w = g.well; const a = angTo(k.x, k.y, w.x, w.y); const d = Math.sqrt(dist2(k.x, k.y, w.x, w.y)) + 20; const f = w.s * 40 / d; k.vx += Math.cos(a) * f * dt * 10; k.vy += Math.sin(a) * f * dt * 10; }
     k.x += k.vx * dt; k.y += k.vy * dt;
-    if (p.alive && dist2(k.x, k.y, p.x, p.y) < 22 * 22) { k.dead = true; g.collect(k); continue; }
+    if (p.alive && dist2(k.x, k.y, p.x, p.y) < 30 * 30) { k.dead = true; g.collect(k); continue; }
     if (k.y > view.h + 30 || k.x < -40 || k.x > view.w + 40) k.dead = true;
   }
 }
@@ -68,8 +68,8 @@ export function drawPickups(g) {
   for (const k of g.pickups) {
     const P = PK[k.kind];
     const s = glow(P.glow, 16);
-    const r = (k.kind === 'coin' ? 9 + k.tier * 3 : P.r * 1.9) * (1 + 0.15 * Math.sin(k.t * 6));
-    ctx.globalAlpha = k.kind === 'coin' ? 0.45 : 0.7;
+    const r = (k.kind === 'coin' ? 13 + k.tier * 4 : P.r * 1.9) * (1 + 0.15 * Math.sin(k.t * 6));
+    ctx.globalAlpha = k.kind === 'coin' ? 0.55 : 0.7;
     ctx.drawImage(s.c, k.x - r, k.y - r, r * 2, r * 2);
   }
   ctx.globalAlpha = 1;

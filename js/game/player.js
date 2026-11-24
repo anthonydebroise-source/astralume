@@ -5,7 +5,7 @@ import { input } from '../engine/input.js';
 import { fx } from '../engine/particles.js';
 import { glow } from '../engine/sprites.js';
 import { polyPath } from './art.js';
-import { SHIP_FX } from './ships.js';
+import { SHIP_FX, SHIP_SCALE } from './ships.js';
 import { SHIP_BY_ID } from '../economy/data.js';
 import { shipStats } from '../economy/economy.js';
 import { S } from '../economy/save.js';
@@ -13,7 +13,7 @@ import { sfx } from '../audio/sfx.js';
 import { music } from '../audio/music.js';
 import { explode } from './fx.js';
 
-const OFFSETS = [0, 46, 68, 92];
+const OFFSETS = [0, 62, 86, 110];
 
 export class Player {
   constructor(g, o) {
@@ -33,7 +33,7 @@ export class Player {
     this.superMax = 8 + S.up.nova;
     this.super = o.boosts.nova ? 6 : 0;
     this.magnetT = 0;
-    this.magR = 62 * (1 + 0.2 * S.up.magnet);
+    this.magR = 120 * (1 + 0.2 * S.up.magnet);
     this.x = view.w / 2; this.y = view.h + 60;
     this.tx = this.x; this.ty = view.h - view.safeB - 150;
     this.inv = 2.5; this.alive = true; this.r = 4.2;
@@ -74,8 +74,8 @@ export class Player {
       const kv = 330 * dt;
       if (k.ArrowLeft || k.KeyA) this.tx -= kv; if (k.ArrowRight || k.KeyD) this.tx += kv;
       if (k.ArrowUp || k.KeyW) this.ty -= kv; if (k.ArrowDown || k.KeyS) this.ty += kv;
-      this.tx = clamp(this.tx, 14, view.w - 14);
-      this.ty = clamp(this.ty, view.safeT + 64, view.h - view.safeB - 22);
+      this.tx = clamp(this.tx, 22, view.w - 22);
+      this.ty = clamp(this.ty, view.safeT + 70, view.h - view.safeB - 44);
       const ox = this.x;
       this.x = damp(this.x, this.tx, 24, dt);
       this.y = damp(this.y, this.ty, 24, dt);
@@ -109,8 +109,8 @@ export class Player {
     this.magnetT = Math.max(0, this.magnetT - dt);
     // Traînée du réacteur
     const ec = this.super > 0 ? hslHex((this.t * 400) % 360, 100, 65) : this.col;
-    fx.dot(this.x + rand(-2, 2), this.y + 15, rand(-10, 10) - this.bank * 40, rand(140, 200), 0.24, this.super > 0 ? 9 : 6, ec, 0.9);
-    if (Math.random() < 0.4) fx.dot(this.x + rand(-1, 1), this.y + 13, 0, 160, 0.15, 4, '#ffffff', 0.9);
+    fx.dot(this.x + rand(-5, 5), this.y + 32, rand(-10, 10) - this.bank * 40, rand(160, 230), 0.26, this.super > 0 ? 13 : 9, ec, 0.9);
+    if (Math.random() < 0.5) fx.dot(this.x + rand(-3, 3), this.y + 30, 0, 180, 0.16, 6, '#ffffff', 0.9);
   }
 
   fire(dt) {
@@ -123,7 +123,7 @@ export class Player {
       this.wcd += W.interval(lvl);
       if (this.wcd < -0.2) this.wcd = 0;
       const v = this.vol;
-      v.x = this.x; v.y = this.y; v.lvl = lvl; v.dmg = this.dmgMul; v.ghost = false; v.col = this.col;
+      v.x = this.x; v.y = this.y - 24; v.lvl = lvl; v.dmg = this.dmgMul; v.ghost = false; v.col = this.col;
       W.volley(g, v);
       if (this.id !== 'lance' && this.id !== 'phenix') sfx.shot(this.id === 'paon' ? 1 : this.id === 'diapason' ? 1 : 0);
       else if (this.id === 'phenix') sfx.shot(2);
@@ -215,7 +215,7 @@ export class Player {
     if (!this.alive) return;
     const g = glow(this.super > 0 ? hslHex((this.t * 300) % 360, 100, 60) : this.col, 32);
     ctx.globalAlpha = 0.55;
-    ctx.drawImage(g.c, this.x - 34, this.y - 30, 68, 68);
+    ctx.drawImage(g.c, this.x - 58, this.y - 54, 116, 116);
     if (this.super > 0) {
       baseT();
       ctx.globalAlpha = 0.13;
@@ -223,14 +223,14 @@ export class Player {
         const a = this.t * 1.5 + (i / 8) * TAU;
         ctx.fillStyle = hslHex((i * 45 + this.t * 200) % 360, 100, 60);
         ctx.beginPath(); ctx.moveTo(this.x, this.y);
-        ctx.lineTo(this.x + Math.cos(a - 0.08) * 120, this.y + Math.sin(a - 0.08) * 120);
-        ctx.lineTo(this.x + Math.cos(a + 0.08) * 120, this.y + Math.sin(a + 0.08) * 120);
+        ctx.lineTo(this.x + Math.cos(a - 0.08) * 150, this.y + Math.sin(a - 0.08) * 150);
+        ctx.lineTo(this.x + Math.cos(a + 0.08) * 150, this.y + Math.sin(a + 0.08) * 150);
         ctx.closePath(); ctx.fill();
       }
       for (const gh of this.ghosts) {
         ctx.globalAlpha = gh.t * 0.8;
         const s = glow(hslHex(gh.h, 100, 60), 16);
-        ctx.drawImage(s.c, gh.x - 14, gh.y - 14, 28, 28);
+        ctx.drawImage(s.c, gh.x - 24, gh.y - 24, 48, 48);
       }
     }
     ctx.globalAlpha = 1;
@@ -249,24 +249,24 @@ export class Player {
       }
     }
     setT(this.x, this.y);
-    ctx.rotate(this.bank * 0.12);
-    ctx.scale(1 - Math.abs(this.bank) * 0.22, 1);
-    this.F.draw(ctx, this.t, this.col, this.col2);
+    ctx.rotate(this.bank * 0.1);
+    ctx.scale((1 - Math.abs(this.bank) * 0.25) * SHIP_SCALE, SHIP_SCALE);
+    this.F.draw(ctx, this.t, this.col, this.col2, this.bank);
     baseT();
     ctx.globalAlpha = 1;
     if (this.shield > 0) {
       setT(this.x, this.y);
       const p = 1 + 0.05 * Math.sin(this.t * 6);
       ctx.strokeStyle = rgba('#38f2ff', 0.75); ctx.lineWidth = 1.6;
-      polyPath(ctx, 6, 27 * p, this.t * 0.6); ctx.stroke();
+      polyPath(ctx, 6, 46 * p, this.t * 0.6); ctx.stroke();
       ctx.fillStyle = rgba('#38f2ff', 0.07); ctx.fill();
-      if (this.shield > 1) { ctx.strokeStyle = rgba('#a0f8ff', 0.5); polyPath(ctx, 6, 31 * p, -this.t * 0.6); ctx.stroke(); }
-      if (this.shield > 2) { polyPath(ctx, 6, 35 * p, this.t); ctx.stroke(); }
+      if (this.shield > 1) { ctx.strokeStyle = rgba('#a0f8ff', 0.5); polyPath(ctx, 6, 51 * p, -this.t * 0.6); ctx.stroke(); }
+      if (this.shield > 2) { polyPath(ctx, 6, 56 * p, this.t); ctx.stroke(); }
       baseT();
     }
     if (S.settings.hitbox && this.entering <= 0) {
-      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(this.x, this.y, 2.6, 0, TAU); ctx.fill();
-      ctx.strokeStyle = rgba(this.col, 0.9); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(this.x, this.y, 4.6, 0, TAU); ctx.stroke();
+      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(this.x, this.y, 3, 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#ff3f6e'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(this.x, this.y, 5.2, 0, TAU); ctx.stroke();
     }
   }
 }

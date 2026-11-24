@@ -5,123 +5,14 @@ import { fx } from '../engine/particles.js';
 import { glow } from '../engine/sprites.js';
 import { starPath, polyPath } from './art.js';
 import { sfx } from '../audio/sfx.js';
+import { SHIP_ART, SHIP_SCALE } from './shipart.js';
+export { SHIP_SCALE };
 
 const up = (a) => [Math.sin(a), -Math.cos(a)];
 function bolt(g, s, x, y, a, spd, dmg, kind = 'bolt', o) {
   const [dx, dy] = up(a);
   return g.addPB(x, y, dx * spd, dy * spd, dmg * s.dmg, kind, s.ghost ? Object.assign({ ghost: true }, o) : o);
 }
-
-// ---------- Dessins des vaisseaux (orientés vers le haut) ----------
-function hullGrad(c, col, w, h) {
-  const g = c.createLinearGradient(-w, 0, w, 0);
-  g.addColorStop(0, darken(col, 0.75)); g.addColorStop(0.5, darken(col, 0.35)); g.addColorStop(1, darken(col, 0.8));
-  return g;
-}
-function cockpit(c, x, y, rx, ry, col) {
-  const g = c.createRadialGradient(x - rx * 0.3, y - ry * 0.4, 0, x, y, ry);
-  g.addColorStop(0, '#ffffff'); g.addColorStop(0.4, lighten(col, 0.4)); g.addColorStop(1, darken(col, 0.3));
-  c.fillStyle = g; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, TAU); c.fill();
-}
-const DRAW = {
-  etincelle(c, t, A, B) {
-    c.beginPath(); c.moveTo(0, -22); c.lineTo(6, -6); c.lineTo(18, 8); c.lineTo(17, 13); c.lineTo(6, 9); c.lineTo(0, 14); c.lineTo(-6, 9); c.lineTo(-17, 13); c.lineTo(-18, 8); c.lineTo(-6, -6); c.closePath();
-    c.fillStyle = hullGrad(c, A, 18); c.fill(); c.strokeStyle = A; c.lineWidth = 1.6; c.stroke();
-    c.strokeStyle = B; c.lineWidth = 1; c.beginPath(); c.moveTo(-6, -2); c.lineTo(-14, 9); c.moveTo(6, -2); c.lineTo(14, 9); c.stroke();
-    c.fillStyle = A; c.fillRect(-7.5, -10, 2, 10); c.fillRect(5.5, -10, 2, 10);
-    cockpit(c, 0, -5, 3.2, 6, A);
-    c.fillStyle = B; c.beginPath(); c.arc(-17.5, 10.5, 1.6, 0, TAU); c.arc(17.5, 10.5, 1.6, 0, TAU); c.fill();
-  },
-  paon(c, t, A, B) {
-    for (const s of [-1, 1]) for (let i = 0; i < 5; i++) {
-      const a = s * (0.5 + i * 0.28), l = 20 - i * 1.5;
-      c.save(); c.rotate(a); c.beginPath(); c.ellipse(0, -l * 0.55 + 4, 3.4, l * 0.6, 0, 0, TAU);
-      c.fillStyle = i % 2 ? darken(A, 0.3) : darken(A, 0.5); c.fill(); c.strokeStyle = A; c.lineWidth = 1; c.stroke();
-      c.fillStyle = B; c.beginPath(); c.arc(0, -l + 6, 1.8, 0, TAU); c.fill(); c.restore();
-    }
-    c.beginPath(); c.moveTo(0, -20); c.quadraticCurveTo(7, -4, 4, 12); c.lineTo(-4, 12); c.quadraticCurveTo(-7, -4, 0, -20); c.closePath();
-    c.fillStyle = hullGrad(c, A, 7); c.fill(); c.strokeStyle = A; c.lineWidth = 1.5; c.stroke();
-    cockpit(c, 0, -6, 2.6, 5, B);
-  },
-  lance(c, t, A, B) {
-    c.beginPath(); c.moveTo(0, -16); c.lineTo(4, 14); c.lineTo(0, 18); c.lineTo(-4, 14); c.closePath();
-    c.fillStyle = hullGrad(c, A, 5); c.fill(); c.strokeStyle = A; c.lineWidth = 1.4; c.stroke();
-    c.beginPath(); c.moveTo(-3, 2); c.lineTo(-16, 12); c.lineTo(-14, 15); c.lineTo(-3, 10); c.moveTo(3, 2); c.lineTo(16, 12); c.lineTo(14, 15); c.lineTo(3, 10);
-    c.fillStyle = darken(A, 0.5); c.fill(); c.stroke();
-    c.beginPath(); c.moveTo(-3, -10); c.lineTo(-9, -4); c.lineTo(-3, -4); c.moveTo(3, -10); c.lineTo(9, -4); c.lineTo(3, -4); c.fill(); c.stroke();
-    const r = 6, rot = t * 2;
-    c.save(); c.translate(0, -20);
-    c.beginPath(); for (let i = 0; i < 3; i++) { const a = rot + (i / 3) * TAU; c.lineTo(Math.cos(a) * r, Math.sin(a) * r * 1.4); } c.closePath();
-    c.fillStyle = rgba(B, 0.85); c.fill(); c.strokeStyle = '#ffffff'; c.lineWidth = 1; c.stroke();
-    c.restore();
-    cockpit(c, 0, 2, 2, 4, A);
-  },
-  essaim(c, t, A, B) {
-    for (const s of [-1, 1]) { c.fillStyle = darken(A, 0.5); c.strokeStyle = A; c.lineWidth = 1.2; c.beginPath(); c.moveTo(s * 9, -4); c.lineTo(s * 20, 4); c.lineTo(s * 18, 12); c.lineTo(s * 8, 8); c.closePath(); c.fill(); c.stroke();
-      for (const k of [0, 1]) { c.fillStyle = '#2a1a10'; c.fillRect(s * (12 + k * 5) - 2, -2 + k * 2, 4, 9); c.fillStyle = A; c.fillRect(s * (12 + k * 5) - 2, -4 + k * 2, 4, 3); } }
-    polyPath(c, 6, 13, Math.PI / 6); c.fillStyle = hullGrad(c, A, 13); c.fill(); c.strokeStyle = A; c.lineWidth = 1.6; c.stroke();
-    c.strokeStyle = rgba(B, 0.6); c.lineWidth = 0.8;
-    for (const [x, y] of [[0, -5], [-4.5, 2.5], [4.5, 2.5]]) { c.save(); c.translate(x, y); polyPath(c, 6, 3.4, Math.PI / 6); c.stroke(); c.restore(); }
-    cockpit(c, 0, -8, 2.4, 3.6, B);
-  },
-  tonnerre(c, t, A, B) {
-    c.strokeStyle = A; c.lineWidth = 3; c.lineCap = 'round';
-    c.beginPath(); c.moveTo(0, 10); c.lineTo(0, -22); c.moveTo(-11, 8); c.lineTo(-11, -14); c.moveTo(11, 8); c.lineTo(11, -14); c.stroke();
-    c.beginPath(); c.moveTo(-15, 4); c.quadraticCurveTo(0, 18, 15, 4); c.lineTo(11, 12); c.quadraticCurveTo(0, 20, -11, 12); c.closePath();
-    c.fillStyle = hullGrad(c, B, 15); c.fill(); c.strokeStyle = B; c.lineWidth = 1.5; c.stroke();
-    for (const x of [-11, 0, 11]) for (let k = 0; k < 2; k++) { const y = -8 + k * 7 - (x === 0 ? 6 : 0); c.strokeStyle = rgba(A, 0.6 + 0.4 * Math.sin(t * 20 + k + x)); c.lineWidth = 1.4; c.beginPath(); c.ellipse(x, y, 3.6, 1.6, 0, 0, TAU); c.stroke(); }
-    cockpit(c, 0, 8, 3, 3.5, A);
-  },
-  diapason(c, t, A, B) {
-    const v = Math.sin(t * 50) * 0.6;
-    c.strokeStyle = A; c.lineWidth = 4; c.lineCap = 'round';
-    c.beginPath(); c.moveTo(-8 - v, -22); c.lineTo(-8, 0); c.quadraticCurveTo(-8, 7, 0, 7); c.quadraticCurveTo(8, 7, 8, 0); c.lineTo(8 + v, -22); c.stroke();
-    c.strokeStyle = rgba(B, 0.4); c.lineWidth = 8; c.beginPath(); c.moveTo(0, -18); c.lineTo(0, 0); c.stroke();
-    c.beginPath(); c.moveTo(-3, 6); c.lineTo(-14, 16); c.lineTo(14, 16); c.lineTo(3, 6); c.closePath(); c.fillStyle = hullGrad(c, A, 14); c.fill(); c.strokeStyle = A; c.lineWidth = 1.3; c.stroke();
-    cockpit(c, 0, 11, 2.4, 3, B);
-  },
-  singularite(c, t, A, B) {
-    c.beginPath(); c.arc(0, -4, 15, 0, TAU); c.arc(0, -4, 8, 0, TAU, true);
-    const g = c.createRadialGradient(0, -4, 7, 0, -4, 16); g.addColorStop(0, '#ffffff'); g.addColorStop(0.3, A); g.addColorStop(1, darken(A, 0.6));
-    c.fillStyle = g; c.fill('evenodd');
-    c.fillStyle = '#000000'; c.beginPath(); c.arc(0, -4, 7.5, 0, TAU); c.fill();
-    c.strokeStyle = rgba('#ffffff', 0.8); c.lineWidth = 1; c.beginPath(); c.ellipse(0, -4, 11, 3, t * 3, 0, TAU); c.stroke();
-    c.fillStyle = darken(A, 0.4); c.strokeStyle = A; c.lineWidth = 1.2;
-    c.beginPath(); c.moveTo(-6, 9); c.lineTo(0, 18); c.lineTo(6, 9); c.closePath(); c.fill(); c.stroke();
-    c.beginPath(); c.moveTo(-13, 4); c.lineTo(-18, 14); c.lineTo(-10, 10); c.moveTo(13, 4); c.lineTo(18, 14); c.lineTo(10, 10); c.fill(); c.stroke();
-  },
-  faucheuse(c, t, A, B) {
-    c.beginPath(); c.moveTo(-22, 10); c.quadraticCurveTo(-18, -16, 0, -20); c.quadraticCurveTo(18, -16, 22, 10); c.quadraticCurveTo(12, -6, 0, -8); c.quadraticCurveTo(-12, -6, -22, 10); c.closePath();
-    c.fillStyle = hullGrad(c, A, 22); c.fill(); c.strokeStyle = A; c.lineWidth = 1.6; c.stroke();
-    c.beginPath(); c.moveTo(-5, -6); c.lineTo(0, 14); c.lineTo(5, -6); c.closePath(); c.fillStyle = darken(B, 0.4); c.fill(); c.strokeStyle = B; c.lineWidth = 1.2; c.stroke();
-    const g = c.createRadialGradient(0, -6, 0, 0, -6, 7); g.addColorStop(0, '#ffffff'); g.addColorStop(0.5, A); g.addColorStop(1, rgba(B, 0));
-    c.fillStyle = g; c.beginPath(); c.arc(0, -6, 7, 0, TAU); c.fill();
-  },
-  kaleido(c, t, A, B) {
-    const pts = [[0, -22], [12, 0], [0, 16], [-12, 0]];
-    for (let i = 0; i < 4; i++) {
-      const [x1, y1] = pts[i], [x2, y2] = pts[(i + 1) % 4];
-      c.beginPath(); c.moveTo(0, -2); c.lineTo(x1, y1); c.lineTo(x2, y2); c.closePath();
-      c.fillStyle = hslHex((t * 90 + i * 90) % 360, 90, 45); c.fill();
-    }
-    c.beginPath(); c.moveTo(0, -22); c.lineTo(12, 0); c.lineTo(0, 16); c.lineTo(-12, 0); c.closePath();
-    c.strokeStyle = '#ffffff'; c.lineWidth = 1.4; c.stroke();
-    c.beginPath(); c.moveTo(-12, 0); c.lineTo(-19, 9); c.lineTo(-8, 6); c.moveTo(12, 0); c.lineTo(19, 9); c.lineTo(8, 6); c.strokeStyle = A; c.stroke();
-    cockpit(c, 0, -3, 2.6, 4, '#ffffff');
-  },
-  phenix(c, t, A, B) {
-    for (const s of [-1, 1]) {
-      const f = Math.sin(t * 9 + s) * 2;
-      c.beginPath(); c.moveTo(s * 3, -6); c.quadraticCurveTo(s * 16, -14, s * (24 + f), -4); c.quadraticCurveTo(s * 18, 0, s * (22 + f), 6); c.quadraticCurveTo(s * 14, 6, s * (16 + f), 13); c.quadraticCurveTo(s * 8, 8, s * 3, 8); c.closePath();
-      const g = c.createLinearGradient(0, 0, s * 24, 0); g.addColorStop(0, darken(A, 0.4)); g.addColorStop(0.6, A); g.addColorStop(1, B);
-      c.fillStyle = g; c.fill(); c.strokeStyle = B; c.lineWidth = 1; c.stroke();
-    }
-    c.beginPath(); c.moveTo(0, -20); c.quadraticCurveTo(5, -10, 4, 6); c.lineTo(0, 12); c.lineTo(-4, 6); c.quadraticCurveTo(-5, -10, 0, -20); c.closePath();
-    c.fillStyle = hullGrad(c, A, 5); c.fill(); c.strokeStyle = B; c.lineWidth = 1.3; c.stroke();
-    for (let i = -1; i <= 1; i++) { c.beginPath(); c.moveTo(i * 2, 10); c.quadraticCurveTo(i * 6, 18, i * 4 + Math.sin(t * 12 + i) * 2, 24); c.strokeStyle = i ? A : B; c.lineWidth = 2; c.stroke(); }
-    c.fillStyle = B; c.beginPath(); c.arc(0, -12, 1.8, 0, TAU); c.fill();
-  },
-};
 
 // ---------- Armes ----------
 const W = {
@@ -156,7 +47,7 @@ const W = {
       const dps = 32 * [1, 1.4, 1.8, 2.2, 2.6, 3.0][l - 1] * p.dmgMul * p.rateMul;
       const w = [6, 8, 10, 12, 14, 16][l - 1] * (p.super > 0 ? 1.5 : 1);
       p.beams.length = 0;
-      p.beams.push(g.fireBeam(p.x, p.y - 22, w, dps, l >= 3 ? 1 : 0, p.col));
+      p.beams.push(g.fireBeam(p.x, p.y - 46, w, dps, l >= 3 ? 1 : 0, p.col));
       if (l >= 4) for (const k of [-1, 1]) p.beams.push(g.fireBeam(p.x + k * 15, p.y - 2, 4, dps * 0.25, 0, p.col2));
       sfx.laser(true);
     },
@@ -209,7 +100,7 @@ const W = {
     },
     update(g, p, dt) {
       const l = p.wlvl, n = [2, 2, 3, 3, 4, 5][l - 1];
-      const R = [40, 42, 46, 50, 55, 60][l - 1];
+      const R = [56, 58, 62, 66, 70, 76][l - 1];
       p.bladeA = (p.bladeA || 0) + dt * 7;
       p.blades.length = 0;
       for (let i = 0; i < n; i++) {
@@ -268,11 +159,11 @@ const SP = {
     start(g, p, S) { flash(p.col, 0.4); },
     update(g, p, dt, S) {
       S.w = Math.min(70 + S.aw * 12, (S.w || 10) + dt * 400);
-      g.fireBeam(p.x, p.y - 22, S.w, 150 * S.P, 99, p.col, true);
+      g.fireBeam(p.x, p.y - 46, S.w, 150 * S.P, 99, p.col, true);
       g.cancelBullets({ x: p.x, y: p.y, rect: S.w * 0.7 }, true);
       addShake(0.02);
     },
-    draw(g, p, S) { g.drawBeam(p.x, p.y - 22, -60, S.w, p.col, 1); },
+    draw(g, p, S) { g.drawBeam(p.x, p.y - 46, -60, S.w, p.col, 1); },
   },
   essaim: {
     dur: 1.3,
@@ -395,7 +286,7 @@ const SP = {
 };
 
 export const SHIP_FX = {};
-for (const id of Object.keys(W)) SHIP_FX[id] = { draw: DRAW[id], weapon: W[id], special: SP[id] };
+for (const id of Object.keys(W)) SHIP_FX[id] = { draw: SHIP_ART[id], weapon: W[id], special: SP[id] };
 
 export function drawShipAt(c, id, x, y, sc, t, col, col2, bank = 0) {
   // c doit être en repère monde (setT déjà appliqué hors de cette fonction si besoin)
@@ -403,6 +294,6 @@ export function drawShipAt(c, id, x, y, sc, t, col, col2, bank = 0) {
   c.translate(x, y);
   c.rotate(bank * 0.12);
   c.scale(sc * (1 - Math.abs(bank) * 0.22), sc);
-  DRAW[id](c, t, col, col2);
+  SHIP_ART[id](c, t, col, col2, bank);
   c.restore();
 }

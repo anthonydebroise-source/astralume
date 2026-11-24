@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><title>Vaisseaux</title></head>
+<body style="margin:0;background:#06041a">
+<canvas id="c" width="1000" height="440"></canvas>
+<script type="module">
+import { SHIP_ART } from './js/game/shipart.js';
+import { SHIPS } from './js/economy/data.js';
+const c = document.getElementById('c'), g = c.getContext('2d');
+let t = 0.5;
+function draw() {
+  g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#0a0620'; g.fillRect(0, 0, 1000, 440);
+  SHIPS.forEach((s, i) => {
+    g.setTransform(3.2, 0, 0, 3.2, 100 + (i % 5) * 200, 110 + Math.floor(i / 5) * 220);
+    SHIP_ART[s.id](g, t + i, s.color, s.color2, 0);
+  });
+}
+draw();
+window.ready = true;
+</script></body></html>

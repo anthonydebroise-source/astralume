@@ -70,7 +70,7 @@ register('hub', {
       ctx.drawImage(c, cx - s / 2, cy - s / 2, s, s);
       const sh = S.ship, F = SHIP_FX[sh];
       const a = t * 0.7, ox = Math.cos(a) * s * 0.55, oy = Math.sin(a) * s * 0.18;
-      if (Math.sin(a) > 0 || true) { setT(cx + ox, cy + oy + 10, 0.9); ctx.rotate(Math.cos(a) > 0 ? 0.25 : -0.25); F.draw(ctx, t, SHIP_BY_ID[sh].color, SHIP_BY_ID[sh].color2); baseT(); }
+      if (Math.sin(a) > 0 || true) { setT(cx + ox, cy + oy + 10, 1.1); ctx.rotate(Math.cos(a) > 0 ? 0.25 : -0.25); F.draw(ctx, t, SHIP_BY_ID[sh].color, SHIP_BY_ID[sh].color2); baseT(); }
     });
     const L = Math.min(320, S.maxLevel);
     const info = levelInfo(L);

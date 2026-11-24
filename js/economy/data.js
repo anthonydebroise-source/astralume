@@ -76,7 +76,7 @@ export const UPGRADES = [
     cost: (l) => ({ coins: [1500, 7000, 22000][l], crystals: [0, 40, 120][l] }) },
   { id: 'arsenal', name: 'Arsenal', desc: 'Commencer avec +1 niveau d’arme', icon: 'power', max: 3,
     cost: (l) => ({ coins: [2500, 10000, 32000][l], parts: [5, 20, 50][l] }) },
-  { id: 'magnet', name: 'Champ magnétique', desc: '+20 % de portée d’attraction', icon: 'magnet', max: 8,
+  { id: 'magnet', name: 'Champ magnétique', desc: '+20 % de portée de l’aimant naturel', icon: 'magnet', max: 8,
     cost: (l) => ({ coins: Math.round(300 * Math.pow(1.65, l) / 10) * 10 }) },
   { id: 'fortune', name: 'Fortune', desc: '+7 % de pièces ramassées', icon: 'coin', max: 10,
     cost: (l) => ({ coins: Math.round(500 * Math.pow(1.6, l) / 10) * 10 }) },

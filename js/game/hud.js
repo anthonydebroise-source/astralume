@@ -101,7 +101,7 @@ export class Hud {
       for (let i = 0; i < segs * k; i++) {
         const a0 = -Math.PI / 2 + (i / segs) * TAU, a1 = a0 + TAU / segs * 0.8;
         ctx.strokeStyle = hslHex((this.t * 240 + i * 15) % 360, 100, 65);
-        ctx.beginPath(); ctx.arc(p.x, p.y, 40, a0, a1); ctx.stroke();
+        ctx.beginPath(); ctx.arc(p.x, p.y, 60, a0, a1); ctx.stroke();
       }
       ctx.lineCap = 'butt';
     }
