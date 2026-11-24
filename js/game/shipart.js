@@ -238,4 +238,4 @@ export const SHIP_ART = {
     glass(c, 0, -6, 2.4, 4, B);
   },
 };
-export const SHIP_SCALE = 1.8;
+export const SHIP_SCALE = 1.75;

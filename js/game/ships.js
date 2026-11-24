@@ -5,7 +5,9 @@ import { fx } from '../engine/particles.js';
 import { glow } from '../engine/sprites.js';
 import { starPath, polyPath } from './art.js';
 import { sfx } from '../audio/sfx.js';
-import { SHIP_ART, SHIP_SCALE } from './shipart.js';
+import { SHIP_SCALE } from './shipart.js';
+import { drawHypercar } from './hypercar.js';
+const SHIP_ART = new Proxy({}, { get: (_, id) => (c, t, A, B, bank) => drawHypercar(c, id, t, bank) });
 export { SHIP_SCALE };
 
 const up = (a) => [Math.sin(a), -Math.cos(a)];

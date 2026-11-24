@@ -3,7 +3,7 @@ import { TAU, rand, dist2, angTo, angDiff, rgba, lighten, mixHex, clamp, chance 
 import { view, ctx, cam, baseT, setT, setRT, setRTS, addShake, flash, hitstop, drawFlash } from '../engine/renderer.js';
 import { input } from '../engine/input.js';
 import { fx, updateParticles, drawParticles, clearParticles } from '../engine/particles.js';
-import { sprite, glow, orb } from '../engine/sprites.js';
+import { sprite, glow, orb, makeCanvas } from '../engine/sprites.js';
 import { ENEMIES } from './enemies.js';
 import './enemies2.js';
 import { initPath, updatePath } from './paths.js';
@@ -76,6 +76,34 @@ function pbSprite(kind, color) {
   });
 }
 const CLS_SIZE = { xs: 1, s: 1, m: 2, l: 3, g: 2, snake: 3 };
+// Rendu « pro » des aliens : contour sombre net + liseré lumineux, via un tampon hors écran
+const EB = makeCanvas(64, 64), EBg = EB.getContext('2d');
+const SB = makeCanvas(64, 64), SBg = SB.getContext('2d');
+const OUT = [[1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5], [1.05, 1.05], [-1.05, 1.05], [1.05, -1.05], [-1.05, -1.05]];
+function drawEnemyPro(e) {
+  const r = e.r * e.scale;
+  const U = r * 3.4 + 8, px = Math.min(512, Math.ceil(U * view.rs));
+  if (EB.width < px) { EB.width = EB.height = SB.width = SB.height = px; }
+  EBg.setTransform(1, 0, 0, 1, 0, 0); EBg.clearRect(0, 0, px, px);
+  const k = view.rs * e.scale, a = e.face || 0, c = Math.cos(a) * k, s = Math.sin(a) * k;
+  EBg.setTransform(c, s, -s, c, px / 2, px / 2);
+  EBg.globalAlpha = 1;
+  e.T.draw(EBg, e, e.t);
+  EBg.globalAlpha = 1;
+  SBg.setTransform(1, 0, 0, 1, 0, 0);
+  SBg.globalCompositeOperation = 'copy'; SBg.drawImage(EB, 0, 0, px, px, 0, 0, px, px);
+  SBg.globalCompositeOperation = 'source-in'; SBg.fillStyle = '#04020c'; SBg.fillRect(0, 0, px, px);
+  SBg.globalCompositeOperation = 'source-over';
+  const x0 = e.x - U / 2, y0 = e.y - U / 2;
+  baseT();
+  ctx.globalAlpha = e.alpha;
+  for (const [ox, oy] of OUT) ctx.drawImage(SB, 0, 0, px, px, x0 + ox, y0 + oy, U, U);
+  // liseré lumineux (lumière venant du haut à gauche)
+  SBg.globalCompositeOperation = 'source-in'; SBg.fillStyle = e.elite ? '#ffe27a' : e.cg; SBg.fillRect(0, 0, px, px); SBg.globalCompositeOperation = 'source-over';
+  ctx.drawImage(SB, 0, 0, px, px, x0 - 1.1, y0 - 1.3, U, U);
+  ctx.drawImage(EB, 0, 0, px, px, x0, y0, U, U);
+  ctx.globalAlpha = 1;
+}
 const RAINBOW = ['#ff4fd8', '#ffd23f', '#38f2ff', '#47ffa3', '#a259ff', '#ff7a3c'];
 const TYPE_TINT = {};
 
@@ -836,13 +864,15 @@ export class Game {
       for (const e of this.enemies) {
         if (e.dead || e.ground !== ground || e.alpha < 0.5 || e.T.cls === 'xs') continue;
         const r = e.r * e.scale * 1.18;
-        ctx.globalAlpha = 0.7 * e.alpha; ctx.drawImage(dk.c, e.x - r, e.y - r, r * 2, r * 2);
+        ctx.globalAlpha = 0.35 * e.alpha; ctx.drawImage(dk.c, e.x - r, e.y - r, r * 2, r * 2);
       }
       ctx.globalAlpha = 1;
     }
+    const pro = view.adapt >= 0.7 && view.quality !== 'low';
     for (const e of this.enemies) {
       if (e.dead || e.ground !== ground) continue;
       if (e.y < -80 || e.y > view.h + 80) continue;
+      if (pro && e.alpha > 0.05) { drawEnemyPro(e); continue; }
       setRTS(e.x, e.y, e.face || 0, e.scale, e.scale);
       ctx.globalAlpha = e.alpha;
       e.T.draw(ctx, e, e.t);

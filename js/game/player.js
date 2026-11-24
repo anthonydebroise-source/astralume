@@ -109,8 +109,8 @@ export class Player {
     this.magnetT = Math.max(0, this.magnetT - dt);
     // Traînée du réacteur
     const ec = this.super > 0 ? hslHex((this.t * 400) % 360, 100, 65) : this.col;
-    fx.dot(this.x + rand(-5, 5), this.y + 32, rand(-10, 10) - this.bank * 40, rand(160, 230), 0.26, this.super > 0 ? 13 : 9, ec, 0.9);
-    if (Math.random() < 0.5) fx.dot(this.x + rand(-3, 3), this.y + 30, 0, 180, 0.16, 6, '#ffffff', 0.9);
+    fx.dot(this.x + rand(-6, 6), this.y + 52, rand(-10, 10) - this.bank * 40, rand(160, 230), 0.26, this.super > 0 ? 13 : 9, ec, 0.9);
+    if (Math.random() < 0.5) fx.dot(this.x + rand(-3, 3), this.y + 50, 0, 180, 0.16, 6, '#ffffff', 0.9);
   }
 
   fire(dt) {
@@ -260,7 +260,7 @@ export class Player {
       ctx.globalCompositeOperation = 'lighter';
       ctx.strokeStyle = rgba('#bff6ff', 0.25 + 0.3 * k * (0.5 + 0.5 * Math.sin(this.t * 14)));
       ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(0, 0, 44, 0, TAU); ctx.stroke();
-      ctx.fillStyle = rgba('#bff6ff', 0.06 * k); ctx.fill();
+      ctx.fillStyle = rgba('#bff6ff', 0.025 * k); ctx.fill();
       ctx.globalCompositeOperation = 'source-over';
       baseT();
     }
