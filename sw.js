@@ -1,5 +1,5 @@
 // Service worker : met tout le jeu en cache pour jouer hors ligne
-const VERSION = 'astralume-202611242333';
+const VERSION = 'astralume-202611242334';
 const ASSETS = [
   "./",
   "css/style.css",

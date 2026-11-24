@@ -243,13 +243,25 @@ export class Background {
     }
     // Falaises latérales
     for (const side of [0, 1]) {
-      g.beginPath();
-      const x0 = side ? view.w + 5 : -5;
-      g.moveTo(x0, -10);
-      for (let y = -10; y <= CH + 10; y += 12) { const w = this.cliff(toY(y), side); g.lineTo(side ? view.w - w : w, y); }
-      g.lineTo(x0, CH + 10); g.closePath();
-      g.fillStyle = darken(P.g3 || P.g0, 0.2); g.fill();
-      g.strokeStyle = rgba(lighten(P.g2, 0.2), 0.9); g.lineWidth = 2; g.stroke();
+      const x0 = side ? view.w + 5 : -5, dir = side ? -1 : 1;
+      const edge = (extra) => { g.beginPath(); g.moveTo(x0, -10); for (let y = -10; y <= CH + 10; y += 10) { const w = this.cliff(toY(y), side) + extra; g.lineTo(side ? view.w - w : w, y); } g.lineTo(x0, CH + 10); g.closePath(); };
+      // ombre portée de la falaise sur le sol
+      edge(16); g.fillStyle = 'rgba(0,0,0,0.28)'; g.fill();
+      edge(7); g.fillStyle = 'rgba(0,0,0,0.3)'; g.fill();
+      // falaise : dégradé du sommet (éclairé) vers la base
+      edge(0);
+      const gr = g.createLinearGradient(side ? view.w : 0, 0, side ? view.w - 50 * 1 : 50, 0);
+      gr.addColorStop(0, darken(P.g3 || P.g0, 0.55)); gr.addColorStop(0.6, darken(P.g1, 0.1)); gr.addColorStop(1, lighten(P.g1, 0.25));
+      g.fillStyle = gr; g.fill();
+      // strates
+      g.save(); edge(0); g.clip();
+      g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 1;
+      for (let y = 0; y < CH; y += 9) { g.beginPath(); g.moveTo(side ? view.w : 0, y); g.lineTo(side ? view.w - 60 : 60, y + 6 * dir); g.stroke(); }
+      g.restore();
+      // arête éclairée
+      g.beginPath(); for (let y = -10; y <= CH + 10; y += 10) { const w = this.cliff(toY(y), side); if (y === -10) g.moveTo(side ? view.w - w : w, y); else g.lineTo(side ? view.w - w : w, y); }
+      g.strokeStyle = rgba(lighten(P.g2, 0.45), 0.95); g.lineWidth = 2.2; g.stroke();
+      g.strokeStyle = rgba(P.deco, 0.35); g.lineWidth = 5; g.stroke();
     }
     ch = { S, lights };
     this.chunks.set(k, ch);
@@ -400,6 +412,7 @@ export class Background {
       for (let i = 0; i < 2; i++) this.drawTile(this.stars[i].L, this.stars[i].off, this.stars[i].h);
       if (this.far) { ctx.globalAlpha = 0.6; ctx.drawImage(this.far.S.c, this.far.x - this.far.R, this.far.y - this.far.R, this.far.R * 2, this.far.R * 2); ctx.globalAlpha = 1; }
       this.drawTile(this.stars[2].L, this.stars[2].off, this.stars[2].h);
+      this.drawSun();
       this.drawTwinkles();
       this.drawSides();
     } else {
@@ -434,6 +447,32 @@ export class Background {
     baseT();
     ctx.globalCompositeOperation = 'lighter';
     for (const c of this.clouds) { const s = this.cloudSpr[c.k]; ctx.globalAlpha = 0.16; ctx.drawImage(s.c, c.x, c.y, 180 * c.s, 120 * c.s); }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  drawSun() {
+    if (!this.sun) {
+      const right = (this.seed % 2) === 0;
+      this.sun = { x: right ? view.w * 0.82 : view.w * 0.18, y: view.h * 0.08, c: this.pal.neb2 };
+    }
+    const S = this.sun, t = this.t;
+    ctx.globalCompositeOperation = 'lighter';
+    const g1 = glow(S.c, 32), g2 = glow('#ffffff', 32);
+    const p = 1 + 0.04 * Math.sin(t * 0.8) + this.beat * 0.05;
+    ctx.globalAlpha = 0.55; ctx.drawImage(g1.c, S.x - 190 * p, S.y - 190 * p, 380 * p, 380 * p);
+    ctx.globalAlpha = 0.9; ctx.drawImage(g2.c, S.x - 34 * p, S.y - 34 * p, 68 * p, 68 * p);
+    // rayons divins qui tournent lentement
+    ctx.globalAlpha = 0.07;
+    for (let i = 0; i < 9; i++) {
+      const a = t * 0.05 + (i / 9) * TAU;
+      ctx.fillStyle = i % 2 ? S.c : '#ffffff';
+      ctx.beginPath(); ctx.moveTo(S.x, S.y); ctx.lineTo(S.x + Math.cos(a - 0.05) * 520, S.y + Math.sin(a - 0.05) * 520); ctx.lineTo(S.x + Math.cos(a + 0.05) * 520, S.y + Math.sin(a + 0.05) * 520); ctx.closePath(); ctx.fill();
+    }
+    // reflets d'objectif alignés vers le centre de l'écran
+    const dx = view.w / 2 - S.x, dy = view.h * 0.6 - S.y;
+    for (const [k, r, a] of [[0.35, 14, 0.18], [0.6, 26, 0.1], [0.85, 9, 0.22], [1.25, 40, 0.07]]) {
+      ctx.globalAlpha = a; ctx.drawImage(g1.c, S.x + dx * k - r, S.y + dy * k - r, r * 2, r * 2);
+    }
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
   }
