@@ -565,7 +565,7 @@ export class Boss {
     g.spawnSalvage(p.x, p.y, Math.max(16, p.r), this.col);
     const w = WOUND[p.kind];
     this.wounds.push({ ox: p.ox, oy: p.oy, att: w, cd: 1.2, r: p.r, part: p });
-    g.msg(`${p.name} détruit !`, this.col.cg, 22);
+    g.msg({ cannon: 'Canon détruit !', arm: 'Bras arraché !', shell: 'Carapace brisée !', pod: 'Couveuse crevée !', segment: 'Anneau détruit !' }[p.kind] || 'Partie détruite !', this.col.cg, 22);
     if (w && WOUND_MSG[w]) g.later(0.6, () => g.msg(WOUND_MSG[w], '#ffffff', 15, 1.8));
     if (p.kind === 'pod') ATT.summon(this, g, { x: p.x, y: p.y });
     if (p.kind === 'segment') ATT.segBurst(this, g, { x: p.x, y: p.y });
