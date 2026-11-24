@@ -238,7 +238,7 @@ export function levelSheet(L) {
       boostRow.append(h('button', { class: 'btn small ' + (boosts[k] ? 'green' : 'ghost'), onclick: () => { sfx.ui(); boosts[k] = !boosts[k]; render(); } }, h('img', { src: iconURL('boost_' + k, 48) }), `${BOOSTS[k].name} (${n})`));
     }
     const ship = SHIP_BY_ID[S.ship];
-    body.append(
+    body.append(...[
       h('div', { class: 'muted center', style: 'letter-spacing:.2em;font-weight:800;font-size:12px' }, `SECTEUR ${info.code} · ${info.kindName.toUpperCase()}`),
       h('h2', { style: `color:${info.world.pal.neb2}` }, info.name),
       h('p', { class: 'center' }, desc), trait,
@@ -258,7 +258,7 @@ export function levelSheet(L) {
           m.close();
           app.startLevel(L, diff, boosts);
         })),
-    );
+    ].filter(Boolean));
   };
   render();
   m = modal(body, { bottom: true });
@@ -316,7 +316,7 @@ register('results', {
     const xpb = h('div', { class: 'bar' }, h('i', { style: `width:${Math.round(R.xpFrom * 100)}%` }));
     const statsLine = h('div', { class: 'muted small center', style: 'margin-top:8px' }, `${R.stats.kills} aliens · chaîne max ${R.stats.maxChain} · ${R.stats.constellations} constellation(s)` + (R.stats.perfects ? ` · ${R.stats.perfects} PARFAIT` : ''));
     const next = Math.min(320, R.def.L + 1);
-    el.append(
+    el.append(...[
       h('h1', { class: win ? 'win' : 'lose' }, win ? (R.def.kind === 'boss' ? 'Étoile rallumée !' : 'Victoire !') : 'Défaite'),
       h('div', { class: 'center muted' }, `Secteur ${R.def.code} · ${R.def.name} · ${DIFFS[R.def.diff].name}`),
       win ? stars : null,
@@ -329,8 +329,8 @@ register('results', {
         btn('Carte', 'ghost', () => go('world', { w: R.def.w }, false)),
         btn('Rejouer', '', () => app.startLevel(R.def.L, R.def.diff, {})),
         h('div', { class: 'spacer' }),
-        win && R.def.L < 320 ? btn('Suivant ▸', 'primary', () => go('hub', {}, false) || import('./screens-main.js').then((M) => M.levelSheet(next))) : btn('Accueil', 'primary', () => go('hub', {}, false))),
-    );
+        win && R.def.L < 320 ? btn('Suivant ▸', 'primary', () => { go('hub', {}, false); levelSheet(next); }) : btn('Accueil', 'primary', () => go('hub', {}, false))),
+    ].filter(Boolean));
     R.starsEl = stars; R.xpEl = xpb.querySelector('i');
     return el;
   },

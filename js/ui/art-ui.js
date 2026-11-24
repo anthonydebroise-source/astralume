@@ -8,7 +8,7 @@ const FONT = '"Avenir Next Condensed","Avenir Next","Arial Narrow",system-ui,san
 
 export function drawLogo(r, t) {
   const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
-  const size = Math.min(62, r.w / 6.2);
+  const size = Math.min(52, r.w / 7.6);
   ctx.font = `800 ${size}px ${FONT}`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const word = 'ASTRALUME';
