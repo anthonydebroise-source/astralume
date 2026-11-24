@@ -757,7 +757,14 @@ export class Game {
     }
     this.drawDebris();
     drawPickups(this);
-    if (this.boss) { ctx.globalCompositeOperation = 'lighter'; baseT(); this.boss.drawGlow(); ctx.globalCompositeOperation = 'source-over'; this.boss.draw(); }
+    if (this.boss) {
+      const B = this.boss;
+      const sh = sprite('eshadow2', 64, 64, (g) => { const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,8,0.7)'); gr.addColorStop(1, 'rgba(0,0,8,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); }, 0.4);
+      baseT(); ctx.globalAlpha = 0.6; ctx.drawImage(sh.c, B.x - 150 * B.sc + 30, B.y - 90 * B.sc + 60, 300 * B.sc, 200 * B.sc); ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'lighter'; baseT(); B.drawGlow(); ctx.globalCompositeOperation = 'source-over'; B.draw();
+      const spec = sprite('espec', 32, 32, (g) => { const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.3, 'rgba(255,255,255,0.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 32, 32); }, 0.6);
+      if (B.archId !== 'worm') { ctx.globalCompositeOperation = 'lighter'; baseT(); ctx.globalAlpha = 0.35; ctx.drawImage(spec.c, B.x - 70 * B.sc, B.y - 85 * B.sc, 70 * B.sc, 50 * B.sc); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
+    }
     this.drawEnemies(false);
     // Tirs du joueur et effets lumineux
     ctx.globalCompositeOperation = 'lighter';

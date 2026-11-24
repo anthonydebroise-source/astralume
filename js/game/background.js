@@ -84,6 +84,10 @@ export class Background {
       this.cloudSpr = [0, 1, 2].map((k) => this.buildCloud(new RNG(this.seed + k * 77)));
       for (let i = 0; i < 5; i++) this.clouds.push({ x: rng.range(-40, view.w + 40), y: rng.range(-100, view.h), k: i % 3, s: rng.range(0.8, 1.4) });
     }
+    // Premier plan (profondeur) : silhouettes proches qui défilent vite sur les côtés
+    this.fgSpr = [0, 1, 2].map((k) => this.buildFg(new RNG(this.seed * 7 + k)));
+    this.fg = [];
+    for (let i = 0; i < 3; i++) this.fg.push(this.newFg(rng, rng.range(-view.h, view.h)));
     // Vignette
     const v = mk(view.w, view.h, 0.15);
     const vg = v.g.createRadialGradient(view.w / 2, view.h * 0.5, view.h * 0.25, view.w / 2, view.h * 0.5, view.h * 0.75);
@@ -169,6 +173,29 @@ export class Background {
       if (rng.chance(0.55)) { g.strokeStyle = rgba(lighten(P.deco, 0.3), 0.6); g.lineWidth = R * 0.08; g.beginPath(); g.ellipse(c, c, R * 1.45, R * 0.32, -0.35, 0, TAU); g.stroke(); }
     }
     return { S, x: rng.range(R * 0.5, view.w - R * 0.5), y: rng.range(view.h * 0.1, view.h * 0.5), R: R * 1.5, v: rng.range(3, 7) };
+  }
+  buildFg(rng) {
+    const P = this.pal, R = 70;
+    const S = mk(R * 2, R * 2, 0.3);
+    const g = S.g;
+    if (this.planet) {
+      for (let i = 0; i < 7; i++) radial(g, rng.range(30, 110), rng.range(30, 110), rng.range(25, 45), '#ffffff', 0.35);
+      return S;
+    }
+    const n = 9, pts = [];
+    for (let i = 0; i < n; i++) pts.push(rng.range(0.6, 1));
+    g.beginPath();
+    for (let i = 0; i < n; i++) { const a = (i / n) * TAU; g.lineTo(R + Math.cos(a) * R * 0.9 * pts[i], R + Math.sin(a) * R * 0.9 * pts[i]); }
+    g.closePath();
+    const gr = g.createRadialGradient(R * 0.6, R * 0.5, R * 0.1, R, R, R);
+    gr.addColorStop(0, darken(P.bg2, 0.2)); gr.addColorStop(1, darken(P.bg0, 0.5));
+    g.fillStyle = gr; g.fill();
+    g.strokeStyle = rgba(lighten(P.neb2, 0.3), 0.55); g.lineWidth = 3; g.stroke();
+    return S;
+  }
+  newFg(rng, y) {
+    const left = Math.random() < 0.5;
+    return { x: left ? Math.random() * 40 - 70 : view.w + 30 + Math.random() * 40, y, s: 0.9 + Math.random() * 0.9, k: Math.floor(Math.random() * 3), rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.6 };
   }
   buildCloud(rng) {
     const S = mk(180, 120, 0.25);
@@ -331,6 +358,7 @@ export class Background {
     this.sideOff = (this.sideOff + dt * 70 * sp) % this.side.H;
     this.nebOff = ((this.nebOff || 0) + dt * 7 * sp) % this.NH;
     if (this.far) { this.far.y += dt * this.far.v * sp; if (this.far.y - this.far.R > view.h) { this.far.y = -this.far.R; this.far.x = Math.random() * view.w; } }
+    if (this.fg) for (let i = 0; i < this.fg.length; i++) { const f = this.fg[i]; f.y += dt * 190 * sp * f.s; f.rot += f.vr * dt; if (f.y > view.h + 160) this.fg[i] = this.newFg(null, -160 - Math.random() * 400); }
     if (this.clouds) for (const c of this.clouds) { c.y += dt * 62 * sp * c.s; if (c.y > view.h + 80) { c.y = -140; c.x = Math.random() * (view.w + 80) - 40; } }
   }
   drawTile(L, off, H, x = 0, w = view.w, alpha = 1) {
@@ -411,6 +439,18 @@ export class Background {
   }
   drawFront(superOn) {
     baseT();
+    if (this.fg && !this.menu) {
+      for (const f of this.fg) {
+        const S = this.fgSpr[f.k], sz = 140 * f.s;
+        ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.rot);
+        ctx.globalAlpha = this.planet ? 0.13 : 0.85;
+        if (this.planet) ctx.globalCompositeOperation = 'lighter';
+        ctx.drawImage(S.c, -sz / 2, -sz / 2, sz, sz);
+        ctx.restore();
+        ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      }
+      baseT();
+    }
     if (this.planet) {
       const gr = ctx.createLinearGradient(0, 0, 0, view.h * 0.3);
       gr.addColorStop(0, rgba(this.pal.deco, 0.16)); gr.addColorStop(1, rgba(this.pal.deco, 0));
