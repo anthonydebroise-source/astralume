@@ -172,19 +172,23 @@ export class Game {
   }
   dropPickup(kind, x, y, v = 1) {
     const k = makePickup(kind, x, y, v);
-    if (kind === 'crystals') this.stats.crySpawned++;
+    if (kind === 'crystals') this.stats.crySpawned += v;
     this.pickups.push(k);
     return k;
   }
-  dropCoins(x, y, v) {
-    let V = Math.floor(v) + (Math.random() < v - Math.floor(v) ? 1 : 0);
+  // Butin regroupé : les petites valeurs s'accumulent et tombent en une seule grosse pièce
+  dropCoins(x, y, v, immediate = false) {
+    this.coinBank = (this.coinBank || 0) + v;
+    const minDrop = Math.max(3, 2.5 * this.D.loot);
+    if (!immediate && this.coinBank < minDrop) return;
+    let V = Math.floor(this.coinBank);
     if (V <= 0) return;
+    this.coinBank -= V;
     this.stats.coinSpawned += V;
-    if (V <= 5) { for (let i = 0; i < V; i++) this.pickups.push(makePickup('coin', x, y, 1)); return; }
-    const n = Math.min(8, 2 + Math.floor(Math.log2(V)));
+    const n = V < 40 * this.D.loot ? 1 : V < 150 * this.D.loot ? 2 : Math.min(5, 3 + Math.floor(V / (400 * this.D.loot)));
     const each = Math.floor(V / n);
     let rest = V - each * n;
-    for (let i = 0; i < n; i++) { const val = each + (rest-- > 0 ? 1 : 0); this.pickups.push(makePickup('coin', x + rand(-6, 6), y + rand(-6, 6), val)); }
+    for (let i = 0; i < n; i++) { const val = each + (rest-- > 0 ? 1 : 0); this.pickups.push(makePickup('coin', x + rand(-8, 8), y + rand(-8, 8), val, this.D.loot)); }
   }
   forTargets(cb) { for (let i = 0; i < this.targets.length; i++) cb(this.targets[i]); }
   nearestTarget(x, y, maxD, above = false) {
@@ -253,13 +257,13 @@ export class Game {
       const r = Math.random();
       this.dropPickup(r < 0.4 ? 'energy' : r < 0.6 ? 'shield' : r < 0.75 ? 'magnet' : r < 0.85 ? 'heart' : 'power', e.x, e.y);
     }
-    if (Math.random() < 0.012 + this.diff * 0.02) this.dropPickup('crystals', e.x, e.y);
+    if (Math.random() < 0.006 + this.diff * 0.008) this.dropPickup('crystals', e.x, e.y, 2 + this.diff);
     if (this.diff === 2 && Math.random() < 0.004) this.dropPickup('gems', e.x, e.y);
     if (e.carrier) this.dropPickup(e.carrier, e.x, e.y);
     if (e.nova) this.dropPickup('nova', e.x, e.y);
     if (e.elite) {
       this.stats.elites++;
-      this.dropPickup('crystals', e.x - 8, e.y); this.dropPickup('crystals', e.x + 8, e.y);
+      this.dropPickup('crystals', e.x, e.y, 3);
       if (Math.random() < 0.35 + this.diff * 0.15) this.dropPickup('gems', e.x, e.y);
       if (Math.random() < 0.5) this.dropPickup('power', e.x, e.y + 10);
       fx.text(e.x, e.y - 24, 'ÉLITE !', '#ffd23f', 16);
@@ -275,7 +279,7 @@ export class Game {
     if (prey.dead) return;
     prey.dead = true; prey.eaten = true;
     if (prey.primary) this.stats.spawned--;
-    for (let i = 0; i < 8; i++) fx.goo(prey.x, prey.y, rand(-120, 120), rand(-150, 50), 0.8, rand(1.5, 3), prey.c2);
+    for (let i = 0; i < 6; i++) fx.goo(prey.x, prey.y, rand(-120, 120), rand(-150, 50), 0.4, rand(1.2, 2.2), 'rgba(60,40,80,0.55)');
     fx.text(glu.x, glu.y - glu.r - 8, 'CROC !', '#ffffff', 14);
     glu.r = Math.min(34, glu.r + 2.5);
     glu.hp += prey.max * 1.2; glu.max += prey.max * 1.2;
@@ -291,10 +295,10 @@ export class Game {
         this.coinStreak = this.coinStreakT > 0 ? this.coinStreak + 1 : 0; this.coinStreakT = 0.5;
         sfx.coin(this.coinStreak);
         this.hud.bump = 1;
-        if (k.v >= 5) fx.text(k.x, k.y - 10, '+' + k.v, '#ffe27a', 11, 0.6);
+        fx.text(k.x, k.y - 14, '+' + k.v, '#ffe27a', 13, 0.6);
         break;
-      case 'crystals': this.stats.crystals++; sfx.crystal(); fx.text(k.x, k.y - 10, '+1', '#7df9ff', 11, 0.6); break;
-      case 'gems': this.stats.gems++; sfx.gem(); fx.text(k.x, k.y - 12, '+1 GEMME', '#ff8ae6', 13, 0.8); break;
+      case 'crystals': this.stats.crystals += k.v || 1; sfx.crystal(); fx.text(k.x, k.y - 12, '+' + (k.v || 1), '#7df9ff', 13, 0.7); break;
+      case 'gems': this.stats.gems += k.v || 1; sfx.gem(); fx.text(k.x, k.y - 12, '+' + (k.v || 1) + ' GEMME' + ((k.v || 1) > 1 ? 'S' : ''), '#ff8ae6', 14, 0.8); break;
       case 'parts': this.stats.parts += k.v || 1; sfx.part(); fx.text(k.x, k.y - 10, '+' + (k.v || 1), '#ffbe7a', 11, 0.6); break;
       case 'power':
         if (p.wlvl < 6) { p.wlvl++; this.msg(p.wlvl === 6 ? 'ARME AU MAXIMUM !' : `ARME NIVEAU ${p.wlvl}`, '#ff9d3c', 18, 1); }
@@ -330,9 +334,10 @@ export class Game {
       if (!ins) continue;
       b.dead = true; n++;
       if (n < 40) cancelPop(b.x, b.y, b.color);
-      if (reward && Math.random() < 0.3) { const k = makePickup('coin', b.x, b.y, 1); k.attract = true; k.age = 0.3; this.pickups.push(k); }
+      if (reward) this.cancelBank = (this.cancelBank || 0) + 1;
       if (n >= max) break;
     }
+    if (reward && this.cancelBank >= 6) { const v = Math.round(this.cancelBank * 0.5 * this.D.loot); this.cancelBank = 0; const k = makePickup('coin', this.player.x + rand(-30, 30), this.player.y - 80, v, this.D.loot); k.attract = true; k.age = 0.3; this.pickups.push(k); }
     return n;
   }
   fireBeam(x, y, w, dps, pierce, color, big = false) {
@@ -406,7 +411,7 @@ export class Game {
       if (b.dead) continue;
       const d = Math.sqrt(dist2(x, y, b.x, b.y)) + 1;
       if (d < R) { b.vx += ((x - b.x) / d) * strength * 2 * dt; b.vy += ((y - b.y) / d) * strength * 2 * dt; }
-      if (eat && d < 40) { b.dead = true; if (Math.random() < 0.3) { const k = makePickup('coin', x, y, 1); k.attract = true; this.pickups.push(k); } }
+      if (eat && d < 40) { b.dead = true; this.cancelBank = (this.cancelBank || 0) + 1; }
     }
   }
   addLaser(x, y, ang, warm, dur, w, color, delay = 0) {
@@ -484,10 +489,10 @@ export class Game {
   }
   bossDefeated(b) {
     const x = b.cx(), y = b.cy();
-    this.dropCoins(x, y, (b.mini ? 90 : 200) * this.D.loot);
-    for (let i = 0; i < (b.mini ? 4 : 8); i++) this.dropPickup('crystals', x + rand(-50, 50), y + rand(-40, 40));
-    for (let i = 0; i < (b.mini ? 0 : 1) + this.diff; i++) this.dropPickup('gems', x + rand(-30, 30), y + rand(-30, 30));
-    for (let i = 0; i < (b.mini ? 1 : 3); i++) { const k = this.dropPickup('parts', x + rand(-40, 40), y + rand(-30, 30)); k.v = 1 + this.diff; }
+    this.dropCoins(x, y, (b.mini ? 90 : 200) * this.D.loot, true);
+    this.dropPickup('crystals', x - 30, y, b.mini ? 4 : 8);
+    if ((b.mini ? 0 : 1) + this.diff > 0) this.dropPickup('gems', x + 30, y, (b.mini ? 0 : 1) + this.diff);
+    { const k = this.dropPickup('parts', x, y + 30); k.v = (b.mini ? 1 : 3) * (1 + this.diff); }
     this.lootRush = 3.5;
     this.msg(b.mini ? 'GARDIEN VAINCU !' : 'COLOSSE VAINCU !', '#ffd23f', 30, 2.4, true);
     this.radio('constel');
@@ -698,9 +703,17 @@ export class Game {
       if (this.wind) b.vx += this.wind * dt * 0.6;
       b.x += b.vx * dt; b.y += b.vy * dt;
       if (b.y < -40 || b.y > H + 30 || b.x < -30 || b.x > W + 30) { b.dead = true; continue; }
-      if (p.alive && p.inv <= 0 && this.state === 'play') {
+      if (p.alive && this.state === 'play') {
+        const d2 = dist2(b.x, b.y, p.x, p.y);
         const rr = b.r * 0.72 + pr;
-        if (dist2(b.x, b.y, p.x, p.y) < rr * rr) { b.dead = true; p.hurt(); }
+        if (p.inv <= 0 && d2 < rr * rr) { b.dead = true; p.hurt(); }
+        else if (!b.grazed && d2 < 34 * 34) {
+          b.grazed = true;
+          if (p.inv > 0) { b.dead = true; fx.ring(b.x, b.y, 2, 12, 0.2, '#bff6ff', 2); continue; }
+          p.gauge = Math.min(1, p.gauge + 0.006);
+          fx.spark(b.x, b.y, (b.x - p.x) * 6, (b.y - p.y) * 6, 0.2, 8, '#ffffff', 1.4);
+          if ((this.grazeN = (this.grazeN || 0) + 1) % 6 === 0) fx.text(p.x + 30, p.y - 30, 'FRÔLÉ !', '#bff6ff', 12, 0.6);
+        }
       }
     }
     let j = 0; for (const b of this.ebs) if (!b.dead) this.ebs[j++] = b; this.ebs.length = j;

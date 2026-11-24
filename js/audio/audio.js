@@ -52,17 +52,42 @@ export function applyVolumes() {
   if (!A.ctx || !A.settings) return;
   const s = A.settings, t = A.ctx.currentTime;
   A.master.gain.setTargetAtTime(vol(s.master), t, 0.03);
-  A.music.gain.setTargetAtTime(vol(s.music) * 0.6, t, 0.03);
+  A.music.gain.setTargetAtTime(vol(s.music) * 1.5, t, 0.03);
   A.sfx.gain.setTargetAtTime(vol(s.sfx) * 0.9, t, 0.03);
 }
 export function audioRunning() { return !!(A.ctx && A.ctx.state === 'running'); }
 
+// iPhone : par défaut, le son Web Audio est coupé par le bouton silencieux.
+// On demande une session audio « lecture » (Safari 16.4+) et on lance en boucle
+// un son HTML silencieux, ce qui bascule l'iPhone en mode lecteur multimédia.
+let htmlAudio = null;
+function silentWavURL() {
+  const n = 4000, b = new ArrayBuffer(44 + n), v = new DataView(b);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true);
+  v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+  let bin = ''; const u8 = new Uint8Array(b); for (let i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i]);
+  return 'data:audio/wav;base64,' + btoa(bin);
+}
+function unlockMediaSession() {
+  try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (_) { /* */ }
+  if (htmlAudio) return;
+  try {
+    htmlAudio = new Audio(silentWavURL());
+    htmlAudio.loop = true; htmlAudio.setAttribute('playsinline', ''); htmlAudio.setAttribute('x-webkit-airplay', 'deny');
+    const p = htmlAudio.play();
+    if (p && p.catch) p.catch(() => { htmlAudio = null; });
+  } catch (_) { htmlAudio = null; }
+}
 export function initAudioUnlock() {
-  const h = () => ensureAudio();
-  ['pointerdown', 'touchend', 'click', 'keydown'].forEach((ev) => window.addEventListener(ev, h, { passive: true, capture: true }));
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (_) { /* */ }
+  const h = () => { unlockMediaSession(); ensureAudio(); };
+  ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'click', 'keydown'].forEach((ev) => window.addEventListener(ev, h, { passive: true, capture: true }));
   document.addEventListener('visibilitychange', () => {
     if (!A.ctx) return;
-    if (document.hidden) A.ctx.suspend().catch(() => {});
-    else A.ctx.resume().catch(() => {});
+    if (document.hidden) { A.ctx.suspend().catch(() => {}); if (htmlAudio) htmlAudio.pause(); }
+    else { A.ctx.resume().catch(() => {}); if (htmlAudio) htmlAudio.play().catch(() => {}); }
   });
 }

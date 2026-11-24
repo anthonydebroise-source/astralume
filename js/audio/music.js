@@ -183,7 +183,7 @@ export const music = {
     const chord = [0, 2, 4, 7].map((k) => root + semi(sc, chordDeg + k));
     const sd = this.sd;
     // Pad (accord) au début de chaque mesure
-    if (st === 0) pad(t, chord.slice(0, 3).map((m) => m + 12), sd * 16, L.pad, d.pad ? 0.05 : 0.035);
+    if (st === 0) pad(t, chord.slice(0, 3).map((m) => m + 12), sd * 16, L.pad, d.pad ? 0.07 : 0.05);
     // Basse
     const bp = s.bassPat[st];
     if (bp) {

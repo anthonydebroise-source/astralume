@@ -30,7 +30,7 @@ export function defaults() {
     boosts: { nova: 0, shield: 0, power: 0 },
     settings: {
       master: { on: true, vol: 0.9 }, music: { on: true, vol: 0.7 }, sfx: { on: true, vol: 0.85 },
-      control: 'direct', offset: 2, quality: 'auto', shake: true, hitbox: true,
+      control: 'relative', offset: 1, quality: 'auto', shake: true, hitbox: true,
     },
     seenIntro: false,
     lastDiff: 0,
@@ -59,6 +59,8 @@ export function load() {
   if (!S.ships.etincelle) S.ships.etincelle = defaults().ships.etincelle;
   if (!S.ships[S.ship] || !S.ships[S.ship].own) S.ship = 'etincelle';
   for (const id in S.ships) { const sh = S.ships[id]; sh.m = merge({ dmg: 0, rate: 0, spec: 0 }, sh.m || {}); }
+  // Migration v2 : contrôle « relatif » par défaut (le vaisseau reste sous le doigt)
+  if (!S.mig2) { S.mig2 = 1; S.settings.control = 'relative'; S.settings.offset = 1; }
   return S;
 }
 

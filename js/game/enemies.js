@@ -567,13 +567,13 @@ def('asteroide', {
   },
   death(e, g) {
     const d = e.data;
-    if (d.giant) { for (let i = 0; i < 14; i++) g.dropPickup('crystals', e.x + rand(-40, 40), e.y + rand(-40, 40)); for (let i = 0; i < 3; i++) g.dropPickup('gems', e.x + rand(-30, 30), e.y + rand(-30, 30)); return; }
+    if (d.giant) { g.dropPickup('crystals', e.x - 20, e.y, 14); g.dropPickup('gems', e.x + 20, e.y, 3); return; }
     if (e.r > 16 && !d.small) for (const s of [-1, 1]) {
       const k = g.addEnemy('asteroide', e.x + s * 8, e.y, { k: 'free' }, { data: { small: true, rich: d.rich }, child: true });
       k.r = 10; k.hp = k.max = 6 * e.hpMul; k.fvx = s * rand(50, 100); k.fvy = rand(50, 100); k.data.rich = d.rich;
     }
-    if (d.rich) { for (let i = 0; i < (d.small ? 1 : 2); i++) g.dropPickup('crystals', e.x + rand(-8, 8), e.y + rand(-8, 8)); }
-    else if (chance(0.15)) g.dropPickup('crystals', e.x, e.y);
+    if (d.rich) g.dropPickup('crystals', e.x, e.y, d.small ? 1 : 2);
+    else if (chance(0.08)) g.dropPickup('crystals', e.x, e.y, 2);
   },
 });
 
@@ -594,7 +594,7 @@ def('cristallier', {
     c.fillStyle = '#fff'; c.beginPath(); c.arc(0, 0, r * 0.18 * (1 + 0.3 * Math.sin(t * 6)), 0, TAU); c.fill();
   },
   fire(e, g) { aimed(g, e.x, e.y, 170, 3, 0.25, 'shard'); },
-  death(e, g) { if (!g.def.noFire) ring(g, e.x, e.y, 6, 140, e.face, 'shard'); g.dropPickup('crystals', e.x, e.y); if (chance(0.5)) g.dropPickup('crystals', e.x + 6, e.y); },
+  death(e, g) { if (!g.def.noFire) ring(g, e.x, e.y, 6, 140, e.face, 'shard'); g.dropPickup('crystals', e.x, e.y, 2); },
 });
 
 def('bulle', {
@@ -764,7 +764,7 @@ gdef('geode', {
     }
     c.fillStyle = rgba('#ffffff', 0.5 + 0.5 * Math.sin(t * 4 + e.seed)); c.beginPath(); c.arc(-3, -r * 0.4, 1.8, 0, TAU); c.fill();
   },
-  death(e, g) { for (let i = 0; i < 3; i++) g.dropPickup('crystals', e.x + rand(-10, 10), e.y + rand(-10, 10)); if (chance(0.12)) g.dropPickup('gems', e.x, e.y); },
+  death(e, g) { g.dropPickup('crystals', e.x, e.y, 3); if (chance(0.12)) g.dropPickup('gems', e.x, e.y); },
 });
 
 gdef('canon', {

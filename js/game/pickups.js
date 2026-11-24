@@ -6,28 +6,29 @@ import { ICONS, drawCoin, drawNovaStar } from './art.js';
 
 export const PK = {
   coin: { r: 6, glow: '#ffcf3f' },
-  crystals: { r: 8.5, glow: '#38f2ff' },
-  gems: { r: 9.5, glow: '#ff4fd8' },
-  parts: { r: 9, glow: '#ff9d3c' },
-  power: { r: 11, glow: '#ff9d3c' },
-  shield: { r: 11, glow: '#38f2ff' },
-  magnet: { r: 11, glow: '#ff4f6e' },
-  energy: { r: 10, glow: '#ffe94a' },
-  heart: { r: 10, glow: '#ff4f8a' },
-  nova: { r: 14, glow: '#ffffff' },
+  crystals: { r: 12, glow: '#38f2ff' },
+  gems: { r: 13, glow: '#ff4fd8' },
+  parts: { r: 12, glow: '#ff9d3c' },
+  power: { r: 15, glow: '#ff9d3c' },
+  shield: { r: 15, glow: '#38f2ff' },
+  magnet: { r: 15, glow: '#ff4f6e' },
+  energy: { r: 14, glow: '#ffe94a' },
+  heart: { r: 14, glow: '#ff4f8a' },
+  nova: { r: 18, glow: '#ffffff' },
 };
 
 function coinSprite(tier) {
-  const r = [6.6, 8.2, 10.2][tier];
+  const r = [9.5, 11.5, 13.5][tier];
   return sprite('coin' + tier, r * 2 + 2, r * 2 + 2, (g, w) => { g.translate(w / 2, w / 2); drawCoin(g, r, tier); });
 }
 function iconSprite(kind, r) {
   return sprite('pk_' + kind + r, r * 2 + 4, r * 2 + 4, (g, w) => { g.translate(w / 2, w / 2); ICONS[kind](g, r); });
 }
 
-export function makePickup(kind, x, y, v = 1) {
-  const a = rand(TAU), sp = kind === 'coin' ? rand(40, 150) : rand(20, 80);
-  return { kind, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40, v, t: rand(10), attract: false, dead: false, age: 0, tier: v >= 25 ? 2 : v >= 5 ? 1 : 0 };
+export function makePickup(kind, x, y, v = 1, loot = 1) {
+  const a = rand(TAU), sp = kind === 'coin' ? rand(30, 90) : rand(20, 70);
+  const rel = v / Math.max(1, loot);
+  return { kind, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40, v, t: rand(10), attract: false, dead: false, age: 0, tier: rel >= 30 ? 2 : rel >= 8 ? 1 : 0 };
 }
 
 export function updatePickups(g, dt) {
@@ -91,7 +92,7 @@ export function drawPickups(g) {
       const rot = k.kind === 'crystals' ? Math.sin(k.t * 2) * 0.4 : k.kind === 'parts' ? k.t * 2 : 0;
       setRTS(k.x, k.y + bob, rot, 1, 1);
       ctx.drawImage(s.c, -s.hw, -s.hh, s.w, s.h);
-      if (P.r > 9) { ctx.strokeStyle = rgba(P.glow, 0.5 + 0.3 * Math.sin(k.t * 5)); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, 0, P.r + 4, 0, TAU); ctx.stroke(); }
+      if (P.r > 13) { ctx.strokeStyle = rgba(P.glow, 0.5 + 0.3 * Math.sin(k.t * 5)); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, 0, P.r + 4, 0, TAU); ctx.stroke(); }
     }
   }
   baseT();

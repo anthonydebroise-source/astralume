@@ -13,7 +13,7 @@ import { sfx } from '../audio/sfx.js';
 import { music } from '../audio/music.js';
 import { explode } from './fx.js';
 
-const OFFSETS = [0, 62, 86, 110];
+const OFFSETS = [0, 40, 70, 100];
 
 export class Player {
   constructor(g, o) {
@@ -36,7 +36,7 @@ export class Player {
     this.magR = 120 * (1 + 0.2 * S.up.magnet);
     this.x = view.w / 2; this.y = view.h + 60;
     this.tx = this.x; this.ty = view.h - view.safeB - 150;
-    this.inv = 2.5; this.alive = true; this.r = 4.2;
+    this.inv = 2.5; this.alive = true; this.r = 6;
     this.bank = 0; this.t = 0;
     this.beams = []; this.blades = []; this.hist = []; this.ghosts = [];
     this.wcd = 0.4;
@@ -77,8 +77,8 @@ export class Player {
       this.tx = clamp(this.tx, 22, view.w - 22);
       this.ty = clamp(this.ty, view.safeT + 70, view.h - view.safeB - 44);
       const ox = this.x;
-      this.x = damp(this.x, this.tx, 24, dt);
-      this.y = damp(this.y, this.ty, 24, dt);
+      this.x = damp(this.x, this.tx, 40, dt);
+      this.y = damp(this.y, this.ty, 40, dt);
       const vx = dt > 0 ? (this.x - ox) / dt : 0;
       this.bank = damp(this.bank, clamp(vx / 520, -1, 1), 12, dt);
     }
@@ -254,6 +254,16 @@ export class Player {
     this.F.draw(ctx, this.t, this.col, this.col2, this.bank);
     baseT();
     ctx.globalAlpha = 1;
+    if (this.inv > 0 && this.entering <= 0 && this.alive) {
+      setT(this.x, this.y);
+      const k = Math.min(1, this.inv);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = rgba('#bff6ff', 0.25 + 0.3 * k * (0.5 + 0.5 * Math.sin(this.t * 14)));
+      ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(0, 0, 44, 0, TAU); ctx.stroke();
+      ctx.fillStyle = rgba('#bff6ff', 0.06 * k); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      baseT();
+    }
     if (this.shield > 0) {
       setT(this.x, this.y);
       const p = 1 + 0.05 * Math.sin(this.t * 6);

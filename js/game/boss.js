@@ -505,7 +505,7 @@ export class Boss {
   }
   fight(dt) {
     const g = this.g;
-    const fm = Math.max(0.5, g.D.fire) * (1 + this.rage * 0.08);
+    const fm = Math.max(0.38, g.D.fire) * (0.72 + 0.28 * Math.min(1, g.D.prog / 60)) * (1 + this.rage * 0.08);
     const lvl = 1 + this.rage * 0.15 + this.tier * 0.2;
     for (const p of this.parts) {
       if (!p.alive || !p.att || p.kind === 'core') continue;
@@ -579,7 +579,6 @@ export class Boss {
     c.beginPath(); c.arc(p.ox, p.oy, p.r * 0.75, 0, TAU); c.fill();
     c.fillStyle = rgba(this.col.c2, 0.5 + 0.4 * pul);
     c.save(); c.translate(p.ox, p.oy); blobPath(c, p.r * 0.55, p.r * 0.45, t * 2 + p.ox, 0.2, 8, p.oy); c.fill(); c.restore();
-    if (Math.random() < 0.08) fx.goo(this.x + p.ox * this.sc, this.y + p.oy * this.sc, rand(-20, 20), rand(10, 40), 0.8, 2, this.col.c2);
   }
   drawGlow() {
     const s = glow(this.col.cg, 32);

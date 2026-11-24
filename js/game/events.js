@@ -22,7 +22,7 @@ ENEMIES.comete = {
   id: 'comete', name: 'Comète dorée', hp: 70, r: 14, coins: 30, rate: 99, cls: 'm',
   init(e) { e.noContact = true; e.cg = '#ffd23f'; },
   update(e, g, dt) { for (let i = 0; i < 2; i++) fx.dot(e.x + rand(-4, 4), e.y + rand(-4, 4), -e.fvx * 0.6 + rand(-30, 30), rand(-30, 30), 0.6, 8, i ? '#ffd23f' : '#ffffff'); },
-  onHit(e, g) { if (Math.random() < 0.45) { const k = makePickup('coin', e.x, e.y, Math.max(1, Math.round(2 * g.D.loot))); g.pickups.push(k); } },
+  onHit(e, g) { if (Math.random() < 0.12) { const k = makePickup('coin', e.x, e.y, Math.max(3, Math.round(6 * g.D.loot)), g.D.loot); g.pickups.push(k); } },
   draw(c, e, t) { c.fillStyle = '#fff6c8'; c.beginPath(); c.arc(0, 0, e.r * 0.8, 0, TAU); c.fill(); c.strokeStyle = '#ffd23f'; c.lineWidth = 3; c.stroke(); },
   death(e, g) { g.dropCoins(e.x, e.y, 40 * g.D.loot); g.dropPickup('gems', e.x, e.y); fx.text(e.x, e.y - 20, 'COMÈTE DORÉE !', '#ffd23f', 16); sfx.gem(); },
 };
@@ -39,7 +39,7 @@ ENEMIES.grossebulle = {
     c.strokeStyle = `hsla(${(t * 120) % 360},100%,75%,0.9)`; c.lineWidth = 2; c.stroke();
     c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 3; c.beginPath(); c.arc(0, 0, r * 0.78, -2.6, -1.8); c.stroke();
   },
-  death(e, g) { g.dropPickup(e.data.item, e.x, e.y); for (let i = 0; i < 3; i++) g.dropPickup('crystals', e.x + rand(-12, 12), e.y + rand(-12, 12)); fx.ring(e.x, e.y, 10, 60, 0.4, '#bdf6ff', 3); sfx.crystal(); },
+  death(e, g) { g.dropPickup(e.data.item, e.x, e.y); g.dropPickup('crystals', e.x + 14, e.y, 3); fx.ring(e.x, e.y, 10, 60, 0.4, '#bdf6ff', 3); sfx.crystal(); },
 };
 for (const k of ['meteore', 'comete', 'grossebulle']) Object.assign(ENEMIES[k], { id: k });
 
@@ -116,7 +116,7 @@ const EV = {
         const dx = ev.x - b.x, dy = ev.y - b.y, d = Math.hypot(dx, dy) + 1;
         const f = (14000 * ev.k) / (d + 40);
         b.vx += (dx / d) * f * dt; b.vy += (dy / d) * f * dt;
-        if (d < R) { b.dead = true; const k = makePickup('coin', ev.x, ev.y, Math.max(1, Math.round(g.D.loot))); k.attract = true; g.pickups.push(k); }
+        if (d < R) { b.dead = true; g.cancelBank = (g.cancelBank || 0) + 1; if (g.cancelBank >= 6) g.cancelBullets({ x: -999, y: -999, r: 1 }, true); }
       }
       if (ev.t >= ev.dur - dt) g.well = null;
     },
@@ -142,7 +142,7 @@ const EV = {
       ev.x = ev.s > 0 ? -320 + u * (view.w + 640) : view.w + 320 - u * (view.w + 640);
       ev.y = view.h * (0.62 - u * 0.35);
       ev.cd -= dt;
-      if (ev.cd <= 0) { ev.cd = 2.2; if (ev.x > 20 && ev.x < view.w - 20) g.dropPickup('crystals', ev.x + rand(-60, 60), ev.y + rand(-10, 20)); }
+      if (ev.cd <= 0) { ev.cd = 4.5; if (ev.x > 20 && ev.x < view.w - 20) g.dropPickup('crystals', ev.x + rand(-60, 60), ev.y + rand(-10, 20), 3); }
     },
     drawBack(g, ev) {
       if (ev.x === undefined) return;
@@ -255,7 +255,7 @@ const EV = {
       ev.cx = ev.s > 0 ? -60 + ev.t * 70 : view.w + 60 - ev.t * 70;
       ev.cy = view.safeT + view.h * 0.4 + Math.sin(ev.t * 0.8) * 60;
       ev.cd -= dt;
-      if (ev.cd <= 0) { ev.cd = 0.35; const f = ev.fish[Math.floor(Math.random() * ev.fish.length)]; const x = ev.cx + f.ox * ev.s, y = ev.cy + f.oy; if (x > 10 && x < view.w - 10) { const k = makePickup('coin', x, y, Math.max(1, Math.round(g.D.loot))); g.pickups.push(k); } }
+      if (ev.cd <= 0) { ev.cd = 1.0; const f = ev.fish[Math.floor(Math.random() * ev.fish.length)]; const x = ev.cx + f.ox * ev.s, y = ev.cy + f.oy; if (x > 10 && x < view.w - 10) { const k = makePickup('coin', x, y, Math.max(3, Math.round(3 * g.D.loot)), g.D.loot); g.pickups.push(k); } }
     },
     drawBack(g, ev) {
       if (ev.cx === undefined) return;

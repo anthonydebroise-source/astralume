@@ -1,7 +1,7 @@
 // Effets spectaculaires : explosions, étincelles, éclaboussures organiques
 import { fx } from '../engine/particles.js';
 import { addShake, flash, hitstop } from '../engine/renderer.js';
-import { rand, TAU } from '../engine/math.js';
+import { rand, TAU, darken } from '../engine/math.js';
 import { sfx } from '../audio/sfx.js';
 
 export function explode(x, y, size, c1, c2 = '#ffffff', goo = true) {
@@ -21,10 +21,10 @@ export function explode(x, y, size, c1, c2 = '#ffffff', goo = true) {
   }
   if (goo) {
     const ng = 3 + size * 3;
-    for (let i = 0; i < ng; i++) fx.goo(x, y, rand(-130, 130) * (0.6 + size * 0.2), rand(-200, 30), rand(0.5, 1), rand(1.4, 3.2) + size * 0.4, c2);
+    for (let i = 0; i < ng; i++) fx.goo(x, y, rand(-130, 130) * (0.6 + size * 0.2), rand(-200, 30), rand(0.3, 0.55), rand(1, 2.2) + size * 0.3, 'rgba(60,40,80,0.55)');
   }
   if (size >= 3) {
-    for (let i = 0; i < size * 2; i++) fx.debris(x, y, rand(-200, 200), rand(-260, 40), rand(0.8, 1.4), rand(3, 7), c2);
+    for (let i = 0; i < size * 2; i++) fx.debris(x, y, rand(-200, 200), rand(-260, 40), rand(0.5, 0.9), rand(3, 6), darken(c2, 0.6));
     for (let i = 0; i < size; i++) fx.smoke(x + rand(-20, 20), y + rand(-20, 20), rand(-20, 20), rand(-30, 0), rand(0.8, 1.4), 30 + size * 6, c1);
     addShake(0.12 + size * 0.05);
   } else addShake(size * 0.035);
