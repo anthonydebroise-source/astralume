@@ -186,6 +186,9 @@ function openFlow(id, free) {
   if (!res) { deny(); return; }
   const { rar, item, chest } = res;
   const R = RARITY[rar];
+  const scr = document.querySelector('#ui .screen');
+  if (scr) scr.style.visibility = 'hidden';
+  ui.widgets = [];
   const ov = h('div', { class: 'reveal' });
   const stage = h('div', { style: 'position:absolute;inset:0;pointer-events:none' });
   ov.append(stage);

@@ -84,19 +84,19 @@ export function drawChest(x, y, s, C, t, shake = 0, open = 0) {
   // halo
   c.globalCompositeOperation = 'lighter';
   const g1 = glow(C.color, 32);
-  c.globalAlpha = 0.5 + 0.2 * Math.sin(t * 3) + open * 0.5; c.drawImage(g1.c, -70, -70, 140, 140);
+  c.globalAlpha = Math.min(1, 0.75 + 0.2 * Math.sin(t * 3) + open * 0.5); c.drawImage(g1.c, -80, -80, 160, 160);
   c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
   // corps
   const w = 64, hgt = 38;
   let gr = c.createLinearGradient(0, 0, 0, hgt);
-  gr.addColorStop(0, darken(C.color2, 0.2)); gr.addColorStop(1, darken(C.color2, 0.6));
+  gr.addColorStop(0, lighten(C.color2, 0.15)); gr.addColorStop(1, darken(C.color2, 0.35));
   c.fillStyle = gr; c.beginPath(); c.roundRect ? c.roundRect(-w / 2, -6, w, hgt, 5) : c.rect(-w / 2, -6, w, hgt); c.fill();
   c.strokeStyle = lighten(C.color, 0.3); c.lineWidth = 2; c.stroke();
   c.fillStyle = C.color; c.fillRect(-w / 2, 8, w, 4); c.fillRect(-4, -6, 8, hgt);
   // couvercle
-  c.save(); c.translate(0, -6); c.rotate(-open * 1.1); c.translate(0, 6);
+  c.save(); c.translate(-w / 2, -6); c.rotate(-open * 1.25); c.translate(w / 2, 6);
   gr = c.createLinearGradient(0, -30, 0, -4);
-  gr.addColorStop(0, lighten(C.color, 0.35)); gr.addColorStop(1, C.color2);
+  gr.addColorStop(0, lighten(C.color, 0.6)); gr.addColorStop(1, C.color);
   c.fillStyle = gr;
   c.beginPath(); c.moveTo(-w / 2, -6); c.quadraticCurveTo(-w / 2, -32, 0, -34); c.quadraticCurveTo(w / 2, -32, w / 2, -6); c.closePath(); c.fill();
   c.strokeStyle = lighten(C.color, 0.6); c.lineWidth = 2; c.stroke();

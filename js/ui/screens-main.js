@@ -286,7 +286,7 @@ export function continueMenu(game) {
   let m;
   const items = [h('h2', { class: 'pink-t' }, 'Coque détruite !'), h('p', { class: 'center' }, 'Vos trouvailles sont conservées. Voulez-vous une seconde chance ?')];
   if (cost) {
-    const b = btn(h('span', null, 'Réparer et repartir  ', costEl(cost)), 'green big wide' + (canPay(cost) ? '' : ' cant'), () => { if (!pay(cost)) return; m.close(); game.revive(); }, { onDeny: () => toast('Pas assez de ressources', 'Gagnez-en en jouant !', SVG.lock, '#ff4f6e') });
+    const b = btn(h('span', null, 'Repartir  ', costEl(cost)), 'green big wide' + (canPay(cost) ? '' : ' cant'), () => { if (!pay(cost)) return; m.close(); game.revive(); }, { onDeny: () => toast('Pas assez de ressources', 'Gagnez-en en jouant !', SVG.lock, '#ff4f6e') });
     items.push(b);
   }
   items.push(h('div', { style: 'height:8px' }), btn('Abandonner', 'ghost wide', () => { m.close(); game.finish(false); }));
