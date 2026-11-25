@@ -1,5 +1,5 @@
 // Boss modulaires : chaque partie détruite tombe (récupérable) et révèle une nouvelle attaque
-import { TAU, rand, angTo, clamp, rgba, lighten, darken, ease, dist2 } from '../engine/math.js';
+import { TAU, rand, angTo, angDiff, clamp, rgba, lighten, darken, ease, dist2 } from '../engine/math.js';
 import { view, ctx, setT, baseT, addShake, flash, hitstop } from '../engine/renderer.js';
 import { fx } from '../engine/particles.js';
 import { glow, sprite } from '../engine/sprites.js';
@@ -9,8 +9,10 @@ import { explode, bossBoom, deflect } from './fx.js';
 import { sfx } from '../audio/sfx.js';
 import { BOSS_ART, buildBossArt, drawWound, drawReactor } from './bossart.js';
 import './bossart2.js';
+import './bossart3.js';
 
 const PART_NAMES = { cannon: 'Canon', arm: 'Bras', shell: 'Carapace', pod: 'Couveuse', segment: 'Anneau', core: 'Noyau' };
+const PART_LABEL = { dread: { shell: 'Batterie', arm: 'Lance-missiles', pod: 'Hangar', cannon: 'Tourelle' }, ring: { segment: 'Module', shell: 'Rayon' }, seraph: { shell: 'Grande aile', arm: 'Aile', cannon: 'Auréole' } };
 const WOUND = { cannon: 'geyser', arm: 'acidRain', shell: 'organSpiral', pod: 'sporeMines', segment: 'segBurst' };
 const WOUND_MSG = {
   geyser: 'La plaie crache un geyser !',
@@ -54,6 +56,25 @@ const ATT = {
   crossLaser(b, g, s, l) { const a0 = rand(TAU); for (let k = 0; k < 4; k++) g.addLaser(b.cx(), b.cy(), a0 + (k * Math.PI) / 2, 1.1, 1.0, 14, g.pal.bullet, 0.6); },
   rage(b, g, s, l) { ATT.spiral3(b, g, s, 2); g.later(1.2, () => !b.dead && aimed(g, b.cx(), b.cy(), 200, 5, 0.12, 'needle')); },
   eyeLaser(b, g, s, l) { g.addLaser(s.x, s.y, angTo(s.x, s.y, g.player.x, g.player.y), 0.9, 1.0, 20, g.pal.bullet); },
+  // ---- Cuirassé ----
+  broadside(b, g, s, l) { const dir = s.part.ox < 0 ? -1 : 1, n = 8 + Math.floor(l * 2); for (let i = 0; i < n; i++) g.later(i * 0.07, () => { if (!s.part.alive || b.dead) return; shoot(g, s.part.x + dir * 12, s.part.y + rand(-10, 10), Math.PI / 2 - dir * (1.0 - i * (0.85 / n)), 150, 'needle'); }); },
+  missiles(b, g, s, l) { const n = 2 + (l > 1.5 ? 1 : 0); for (let i = 0; i < n; i++) g.later(i * 0.3, () => { if (!s.part.alive || b.dead) return; const m = g.spawnEB(s.part.x, s.part.y, rand(-70, 70), 40, 'emis'); if (m) { m.home = 2.6; m.hs = 150; } }); },
+  launch(b, g, s, l) { for (let i = 0; i < 2; i++) g.addEnemy('tournoyeur', s.x + (i ? 14 : -14), s.y + 10, { k: 'chase', spd: 75 }, { child: true }); fx.ring(s.x, s.y, 4, 30, 0.35, g.pal.eglow, 2); },
+  sweepLaser(b, g, s, l) { const dir = Math.random() < 0.5 ? 1 : -1; for (let i = 0; i < 7; i++) g.later(i * 0.17, () => !b.dead && g.addLaser(b.cx(), b.cy(), Math.PI / 2 + dir * (-0.95 + i * 0.32), 0.5, 0.32, 12, g.pal.bullet)); },
+  missileStorm(b, g, s, l) { for (let i = 0; i < 6; i++) g.later(i * 0.18, () => { if (b.dead) return; const m = g.spawnEB(b.cx() + (i - 2.5) * 16, b.cy(), (i - 2.5) * 40, -60, 'emis'); if (m) { m.home = 2.2; m.hs = 160; } }); },
+  // ---- Forteresse-anneau ----
+  segPulse(b, g, s, l) { const a = Math.atan2(s.part.oy, s.part.ox); fan(g, s.x, s.y, a, 3, 0.5, 115, 'orb'); },
+  spokeShot(b, g, s, l) { aimed(g, s.x, s.y, 175, 2, 0.2, 'needle'); },
+  spokeLasers(b, g, s, l) { const a0 = rand(TAU); for (let k = 0; k < 3; k++) for (let i = 0; i < 4; i++) g.later(k * 0.55, () => !b.dead && g.addLaser(b.cx(), b.cy(), a0 + i * Math.PI / 2 + k * 0.38, 0.65, 0.45, 12, g.pal.bullet)); },
+  ringWall(b, g, s, l) { for (let w = 0; w < 2; w++) g.later(w * 0.7, () => { if (b.dead) return; const n = 30, gap = angTo(b.cx(), b.cy(), g.player.x, g.player.y) + rand(-0.5, 0.5); for (let i = 0; i < n; i++) { const a = (i / n) * TAU; if (Math.abs(angDiff(a, gap)) < 0.3) continue; shoot(g, b.cx(), b.cy(), a, 105, 'orb'); } }); },
+  orbitMines(b, g, s, l) { const n = 8 + Math.floor(l * 2); for (let i = 0; i < n; i++) { const m = g.spawnEB(b.cx(), b.cy(), 0, 0, 'big'); if (m) m.orb = { cx: b.cx(), cy: b.cy(), a: (i / n) * TAU, r: 24, w: 2.3, t: 0, rel: 1.3 + (i % 2) * 0.35 }; } },
+  // ---- Séraphin ----
+  featherFan(b, g, s, l) { const dir = s.part.ox < 0 ? -1 : 1; for (let k = 0; k < 3; k++) g.later(k * 0.22, () => { if (s.part.alive && !b.dead) fan(g, s.part.x, s.part.y, Math.PI / 2 + dir * 0.35, 5, 0.9, 135 + k * 18, 'shard'); }); },
+  wingLance(b, g, s, l) { aimed(g, s.x, s.y, 215, 3, 0.1, 'needle'); },
+  haloShot(b, g, s, l) { ring(g, s.x, s.y, 8, 95, rand(TAU), 'petal'); },
+  featherStorm(b, g, s, l) { let a = rand(TAU); for (let i = 0; i < 26; i++) g.later(i * 0.08, () => { if (b.dead) return; for (let k = 0; k < 2; k++) shoot(g, b.cx(), b.cy(), a + k * Math.PI, 115 + (i % 2) * 45, 'shard'); a += 0.29; }); },
+  mirrorDash(b, g, s, l) { if (!b.dash) b.dash = { t: 0, from: b.x, to: b.x < view.w / 2 ? view.w * 0.8 : view.w * 0.2, drop: 0 }; },
+  judgment(b, g, s, l) { for (const sx of [-1, 1]) { const x = b.x + sx * 88 * b.sc, y = b.y - 20 * b.sc; g.addLaser(x, y, angTo(x, y, g.player.x, g.player.y), 0.9, 0.7, 14, g.pal.bullet); } },
 };
 
 // ---------- Archétypes ----------
@@ -416,6 +437,71 @@ const ARCH = {
     },
   },
 };
+// ---- Nouveaux colosses ----
+ARCH.dread = {
+  build(b) {
+    b.add(P('core', 0, -18, 26, 1000, null));
+    b.add(P('shell', -80, 2, 30, 440, 'broadside', 3.4, { shield: true }));
+    b.add(P('shell', 80, 2, 30, 440, 'broadside', 3.4, { shield: true }));
+    [[-40, 34], [40, 34], [-28, -52], [28, -52]].forEach(([x, y]) => b.add(P('cannon', x, y, 14, 210, 'aimedBurst', 2.5)));
+    b.add(P('arm', -50, 66, 16, 260, 'missiles', 4.4, { i: 0 }));
+    b.add(P('arm', 50, 66, 16, 260, 'missiles', 4.4, { i: 1 }));
+    b.add(P('pod', -108, -52, 18, 280, 'launch', 7, { i: 0 }));
+    b.add(P('pod', 108, -52, 18, 280, 'launch', 7, { i: 1 }));
+    b.coreAtt = ['sweepLaser', 'missileStorm', 'sweepLaser', 'rage'];
+  },
+  layout(b, t) { for (const p of b.parts) if (p.kind === 'pod') { p.ox = p.bx + Math.sin(t * 1.1 + p.i * 2) * 5; p.oy = p.by + Math.cos(t * 1.4 + p.i) * 6; } },
+  draw() {},
+};
+ARCH.ring = {
+  build(b) {
+    b.add(P('core', 0, 0, 30, 1100, null));
+    for (let i = 0; i < 8; i++) b.add(P('segment', 0, 0, 17, 200, 'segPulse', 3.6, { i, ang: (i / 8) * TAU }));
+    for (let i = 0; i < 4; i++) b.add(P('shell', 0, 0, 22, 360, 'spokeShot', 3.0, { shield: true, i, ang: (i / 4) * TAU + Math.PI / 4 }));
+    b.coreAtt = ['spokeLasers', 'ringWall', 'orbitMines', 'rage'];
+    b.coreNeeds = 0.6;
+  },
+  move(b, dt, t) {
+    b.mt = (b.mt || 0) + dt * (1 + b.rage * 0.06);
+    b.x = view.w / 2 + Math.sin(b.mt * 0.5) * view.w * 0.2;
+    b.y = b.ty + Math.sin(b.mt * 1.0) * 26;
+  },
+  layout(b, t) {
+    for (const p of b.parts) {
+      if (p.kind === 'segment') { const a = p.ang + t * 0.42; p.ox = Math.cos(a) * 86; p.oy = Math.sin(a) * 86; }
+      else if (p.kind === 'shell') { const a = p.ang - t * 0.6; p.ox = Math.cos(a) * 46; p.oy = Math.sin(a) * 46; }
+    }
+  },
+  draw() {},
+};
+ARCH.seraph = {
+  build(b) {
+    b.add(P('core', 0, 6, 24, 1000, null));
+    b.add(P('shell', -64, -22, 34, 420, 'featherFan', 3.2, { shield: true }));
+    b.add(P('shell', 64, -22, 34, 420, 'featherFan', 3.2, { shield: true }));
+    b.add(P('arm', -58, 46, 20, 280, 'wingLance', 2.8, { i: 0 }));
+    b.add(P('arm', 58, 46, 20, 280, 'wingLance', 2.8, { i: 1 }));
+    b.add(P('cannon', 0, -72, 16, 220, 'haloShot', 3.0));
+    b.add(P('cannon', -32, -62, 13, 200, 'haloShot', 3.4));
+    b.add(P('cannon', 32, -62, 13, 200, 'haloShot', 3.4));
+    b.coreAtt = ['featherStorm', 'mirrorDash', 'judgment', 'rage'];
+  },
+  move(b, dt, t) {
+    const W = view.w;
+    if (b.dash) {
+      const D = b.dash; D.t += dt; const u = Math.min(1, D.t / 0.9);
+      b.x = D.from + (D.to - D.from) * ease.inOutCubic(u); b.y = b.ty + Math.sin(u * Math.PI) * 30;
+      D.drop -= dt; if (D.drop <= 0) { D.drop = 0.05; b.g.spawnEB(b.x + rand(-30, 30), b.y + 30, rand(-20, 20), 30, 'drop'); }
+      if (u >= 1) { b.dash = null; b.home = b.x; }
+      return;
+    }
+    b.mt = (b.mt || 0) + dt;
+    b.x += ((b.home ?? W / 2) + Math.sin(b.mt * 0.6) * W * 0.12 - b.x) * Math.min(1, dt * 2); b.y = b.ty + Math.sin(b.mt * 1.3) * 12;
+    if (b.home !== undefined) b.home += (W / 2 - b.home) * dt * 0.3;
+  },
+  layout(b, t) { for (const p of b.parts) if (p.kind === 'arm') { p.ox = p.bx + Math.sin(t * 1.6 + p.i * 3) * 4; p.oy = p.by + Math.sin(t * 2 + p.i) * 6; } },
+  draw() {},
+};
 ATT.eyeLaserCore = (b, g, s, l) => { const a = angTo(b.cx(), b.cy(), g.player.x, g.player.y); g.addLaser(b.cx(), b.cy(), a, 0.85, 1.1, 24, g.pal.bullet); if (l > 1.4) g.later(1.2, () => !b.dead && g.addLaser(b.cx(), b.cy(), angTo(b.cx(), b.cy(), g.player.x, g.player.y), 0.7, 0.9, 20, g.pal.bullet)); };
 
 export function prebakeBoss(g, arch, mini) {
@@ -448,7 +534,7 @@ export class Boss {
     this.dead = false;
     this.layout(0);
   }
-  add(p) { p.name = PART_NAMES[p.kind]; this.parts.push(p); }
+  add(p) { p.name = (PART_LABEL[this.archId] && PART_LABEL[this.archId][p.kind]) || PART_NAMES[p.kind]; this.parts.push(p); }
   cx() { return this.core.x; }
   cy() { return this.core.y; }
   lookFrom(p) { const px = this.x + p.ox * this.sc, py = this.y + p.oy * this.sc; const dx = this.g.player.x - px, dy = this.g.player.y - py; const l = Math.hypot(dx, dy) || 1; return [dx / l, dy / l]; }
@@ -574,8 +660,10 @@ export class Boss {
     g.spawnSalvage(p.x, p.y, Math.max(16, p.r), this.col, this.art);
     const w = WOUND[p.kind];
     this.wounds.push({ ox: p.ox, oy: p.oy, att: w, cd: 1.2, r: p.r, part: p });
-    g.msg({ cannon: 'Canon détruit !', arm: 'Bras arraché !', shell: 'Carapace brisée !', pod: 'Couveuse crevée !', segment: 'Anneau détruit !' }[p.kind] || 'Partie détruite !', this.col.cg, 22);
-    if (w && WOUND_MSG[w]) g.later(0.6, () => g.msg(WOUND_MSG[w], '#ffffff', 15, 1.8));
+    const mech = !!PART_LABEL[this.archId];
+    const MM = { dread: { shell: 'Batterie détruite !', arm: 'Lance-missiles détruit !', pod: 'Hangar détruit !', cannon: 'Tourelle détruite !' }, ring: { segment: 'Module détruit !', shell: 'Rayon brisé !' }, seraph: { shell: 'Grande aile arrachée !', arm: 'Aile arrachée !', cannon: 'Auréole brisée !' } };
+    g.msg((mech && MM[this.archId][p.kind]) || { cannon: 'Canon détruit !', arm: 'Bras arraché !', shell: 'Carapace brisée !', pod: 'Couveuse crevée !', segment: 'Anneau détruit !' }[p.kind] || 'Partie détruite !', this.col.cg, 22);
+    if (w && WOUND_MSG[w]) g.later(0.6, () => g.msg(mech ? 'La brèche crache du feu !' : WOUND_MSG[w], '#ffffff', 15, 1.8));
     if (p.kind === 'pod') ATT.summon(this, g, { x: p.x, y: p.y });
     if (p.kind === 'segment') ATT.segBurst(this, g, { x: p.x, y: p.y });
     g.dropCoins(p.x, p.y, 25 * g.D.loot);

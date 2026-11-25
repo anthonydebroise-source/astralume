@@ -28,6 +28,7 @@ import { drawPart } from './art.js';
 // ---------- Sprites de projectiles ----------
 const BK = {
   orb: { r: 4.5 }, big: { r: 8 }, needle: { r: 3, orient: 1 }, petal: { r: 4, orient: 1 }, shard: { r: 3.4, orient: 1 }, drop: { r: 4, orient: 1, grav: 150 },
+  emis: { r: 5, orient: 1 },
 };
 // Projectile ennemi « danger » : halo coloré, anneau sombre, cœur blanc (jamais confondu avec une pièce)
 function dangerOrb(color, r) {
@@ -46,6 +47,16 @@ function dangerOrb(color, r) {
   });
 }
 function ebSprite(kind, color) {
+  if (kind === 'emis') return sprite('ebemis' + color, 30, 30, (g) => { // missile ennemi à tête chercheuse
+    g.translate(15, 15);
+    const gr = g.createRadialGradient(0, 6, 0, 0, 6, 12); gr.addColorStop(0, rgba(color, 0.8)); gr.addColorStop(1, rgba(color, 0));
+    g.fillStyle = gr; g.beginPath(); g.ellipse(0, 6, 7, 12, 0, 0, TAU); g.fill();
+    g.strokeStyle = 'rgba(25,0,18,0.95)'; g.lineWidth = 2.4;
+    g.beginPath(); g.moveTo(0, -10); g.quadraticCurveTo(3.4, -6, 3, 4); g.lineTo(5.5, 8); g.lineTo(-5.5, 8); g.lineTo(-3, 4); g.quadraticCurveTo(-3.4, -6, 0, -10); g.closePath();
+    g.stroke(); g.fillStyle = '#ffffff'; g.fill();
+    g.fillStyle = color; g.beginPath(); g.moveTo(0, -10); g.quadraticCurveTo(2.6, -7, 2.8, -4); g.lineTo(-2.8, -4); g.quadraticCurveTo(-2.6, -7, 0, -10); g.fill();
+    g.fillRect(-5.5, 5.5, 11, 2.5);
+  });
   if (kind === 'orb') return dangerOrb(color, 4.8);
   if (kind === 'big') return dangerOrb(color, 8);
   return sprite('eb' + kind + color, 30, 30, (g) => {
@@ -818,6 +829,18 @@ export class Game {
     for (const b of this.ebs) {
       if (b.dead) continue;
       b.t += dt;
+      if (b.orb) { // mine en orbite autour du point de lancement, puis éjectée
+        const o = b.orb; o.t += dt;
+        if (o.t < o.rel) { o.a += o.w * dt; o.r += 34 * dt; b.x = o.cx + Math.cos(o.a) * o.r; b.y = o.cy + Math.sin(o.a) * o.r; continue; }
+        const sp = 130 * this.D.bspd; b.vx = Math.cos(o.a) * sp; b.vy = Math.sin(o.a) * sp; b.orb = null;
+      }
+      if (b.home > 0) { // missile à tête chercheuse (vire progressivement vers le joueur)
+        b.home -= dt;
+        const cur = Math.atan2(b.vy, b.vx), ta = angTo(b.x, b.y, p.x, p.y), sp = Math.min(b.hs * this.D.bspd, Math.hypot(b.vx, b.vy) + 220 * dt);
+        const na = cur + clamp(angDiff(cur, ta), -2.4 * dt, 2.4 * dt);
+        b.vx = Math.cos(na) * sp; b.vy = Math.sin(na) * sp;
+        if (Math.random() < 0.5) fx.dot(b.x, b.y, -b.vx * 0.2, -b.vy * 0.2, 0.25, 4, '#ffb070', 0.9);
+      }
       if (b.grav) b.vy += b.grav * dt;
       if (this.wind) b.vx += this.wind * dt * 0.6;
       b.x += b.vx * dt; b.y += b.vy * dt;
