@@ -51,7 +51,17 @@ export class Background {
       const ns = hash32(this.seed, 17);
       this.neb = cached('neb|' + ns + '|' + P.hue, () => nebulaTexture(P, ns, view.w, this.NH, 0.42));
       this.nebOff = rng.range(0, this.NH);
+      // seconde nébuleuse, plus proche : grandes volutes translucides qui défilent nettement plus vite (parallaxe)
+      const ns2 = hash32(this.seed, 29);
+      this.neb2 = cached('neb2|' + ns2 + '|' + P.hue, () => nebulaTexture(P, ns2, view.w, this.NH, 0.24));
+      this.neb2Off = rng.range(0, this.NH);
     }
+    // Poussière en perspective : surgit d'un point de fuite au-dessus de l'écran et grossit en approchant
+    this.dust = [];
+    for (let i = 0; i < (this.planet ? 0 : 46); i++) this.dust.push(this.newDust(rng.next()));
+    // Traînées de vitesse sur les bords
+    this.streaks = [];
+    for (let i = 0; i < (this.planet ? 6 : 10); i++) this.streaks.push(this.newStreak(rng.range(-view.h, view.h)));
     // Étoiles (3 couches)
     this.stars = [];
     const SH = 900;
@@ -105,6 +115,15 @@ export class Background {
     tg.addColorStop(0, rgba(P.neb2, 0.12)); tg.addColorStop(1, rgba(P.neb2, 0));
     v.g.fillStyle = tg; v.g.fillRect(0, 0, view.w, view.h * 0.35);
     this.vig = v;
+  }
+  newDust(d = 0) {
+    const u = (Math.random() * 2 - 1);
+    return { u: Math.sign(u) * Math.pow(Math.abs(u), 0.7), d, sp: 0.14 + Math.random() * 0.12, c: Math.random() < 0.25 ? this.pal.neb2 : Math.random() < 0.2 ? this.pal.deco2 : '#ffffff' };
+  }
+  newStreak(y) {
+    const edge = Math.random() < 0.7;
+    const x = edge ? (Math.random() < 0.5 ? Math.random() * view.w * 0.18 : view.w * (0.82 + Math.random() * 0.18)) : Math.random() * view.w;
+    return { x, y, len: 60 + Math.random() * 140, v: 520 + Math.random() * 520, a: 0.08 + Math.random() * 0.14, c: Math.random() < 0.5 ? '#ffffff' : this.pal.neb2 };
   }
   newSideRock(y) {
     const left = Math.random() < 0.5, s = 0.5 + Math.random() * 0.9;
@@ -183,7 +202,7 @@ export class Background {
     const left = rng.chance(0.5);
     obj.x = left ? rng.range(obj.size * 0.15, view.w * 0.35) : rng.range(view.w * 0.65, view.w - obj.size * 0.15);
     obj.y = rng.range(view.h * 0.12, view.h * 0.45);
-    obj.v = rng.range(2.5, 5);
+    obj.v = rng.range(9, 14); // assez lent pour paraître lointain, assez rapide pour sentir l’avancée
     return obj;
   }
   spawnMega() {
@@ -309,19 +328,26 @@ export class Background {
     this.t += dt;
     this.beat = Math.max(0, this.beat - dt * 3);
     const sp = speed * (1 + this.warp * 6);
-    this.scroll += dt * 42 * sp;
-    for (const s of this.stars) s.off = (s.off + dt * s.v * sp) % s.h;
-    if (this.side) this.sideOff = (this.sideOff + dt * 70 * sp) % this.side.H;
-    if (this.neb) this.nebOff = ((this.nebOff || 0) + dt * 6 * sp) % this.NH;
+    this.scroll += dt * 58 * sp;
+    for (const s of this.stars) s.off = (s.off + dt * s.v * 1.6 * sp) % s.h;
+    if (this.side) this.sideOff = (this.sideOff + dt * 90 * sp) % this.side.H;
+    if (this.neb) this.nebOff = ((this.nebOff || 0) + dt * 16 * sp) % this.NH;
+    if (this.neb2) this.neb2Off = ((this.neb2Off || 0) + dt * 62 * sp) % (this.NH * 1.5);
+    for (let i = 0; i < this.dust.length; i++) {
+      const m = this.dust[i];
+      m.d += dt * sp * m.sp * (0.35 + 2.2 * m.d * m.d);
+      if (m.d >= 1) this.dust[i] = this.newDust(0);
+    }
+    for (let i = 0; i < this.streaks.length; i++) { const k = this.streaks[i]; k.y += dt * k.v * sp; if (k.y - k.len > view.h) this.streaks[i] = this.newStreak(-k.len - Math.random() * 600); }
     if (this.far) { this.far.y += dt * this.far.v * sp; if (this.far.y - this.far.size / 2 > view.h) { this.far.y = -this.far.size / 2; } }
-    for (let i = 0; i < this.sideRocks.length; i++) { const r = this.sideRocks[i]; r.y += dt * r.v * sp; r.rot += r.vr * dt; if (r.y > view.h + 80) this.sideRocks[i] = this.newSideRock(-80 - Math.random() * 200); }
+    for (let i = 0; i < this.sideRocks.length; i++) { const r = this.sideRocks[i]; r.y += dt * r.v * 1.35 * sp; r.rot += r.vr * dt; if (r.y > view.h + 80) this.sideRocks[i] = this.newSideRock(-80 - Math.random() * 200); }
     if (!this.planet && !this.menu) {
       this.megaT -= dt;
       if (this.megaT <= 0 && !this.mega) this.spawnMega();
       if (this.mega) { const m = this.mega; m.y += dt * m.v * sp; m.rot += m.vr * dt; if (m.y - m.h > view.h) { this.mega = null; this.megaT = 40 + Math.random() * 20; } }
     }
     for (let i = 0; i < this.fg.length; i++) { const f = this.fg[i]; f.y += dt * 210 * sp * (f.s / 2); f.rot += f.vr * dt; if (f.y > view.h + 220) this.fg[i] = this.newFg(-220 - Math.random() * 500); }
-    if (this.clouds) for (const c of this.clouds) { c.y += dt * 62 * sp * c.s; if (c.y > view.h + 80) { c.y = -160; c.x = Math.random() * (view.w + 80) - 40; } }
+    if (this.clouds) for (const c of this.clouds) { c.y += dt * 84 * sp * c.s; if (c.y > view.h + 80) { c.y = -160; c.x = Math.random() * (view.w + 80) - 40; } }
     if (this.planet) {
       const k0 = Math.floor(this.scroll / CH), k1 = Math.floor((view.h + this.scroll) / CH);
       for (let k = k0; k <= k1 + 1; k++) {
@@ -338,6 +364,37 @@ export class Background {
     while (y < view.h) { ctx.drawImage(L.c, x, y, w, H); y += H; }
     ctx.globalAlpha = 1;
   }
+  // Volutes proches : agrandies (plus près = plus gros) et nettement plus rapides
+  drawNeb2() {
+    const n = this.neb2; if (!n) return;
+    const H = this.NH * 1.5, W = view.w * 1.5, x = -view.w * 0.25 + Math.sin(this.t * 0.05) * view.w * 0.08;
+    ctx.globalAlpha = 0.42 + this.beat * 0.06;
+    let y = (this.neb2Off || 0) - H;
+    while (y < view.h) { ctx.drawImage(n, x, y, W, H); y += H; }
+    ctx.globalAlpha = 1;
+  }
+  // Poussière en perspective + traînées de vitesse : la sensation d'avancer
+  drawDust() {
+    const cx = view.w / 2, top = -view.h * 0.12, H = view.h * 1.18, W = view.w;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    for (const m of this.dust) {
+      const d = m.d;
+      if (d < 0.05) continue;
+      const x = cx + m.u * (0.08 + 0.92 * d) * W * 0.7, y = top + d * d * H;
+      const k = Math.min(1, d * 1.6), sz = 0.4 + 2.2 * d * d;
+      const dx = x - cx, dy = y - top, L = Math.hypot(dx, dy) || 1, tl = 2 + d * d * 34;
+      ctx.strokeStyle = rgba(m.c, 0.55 * k); ctx.lineWidth = sz;
+      ctx.beginPath(); ctx.moveTo(x - (dx / L) * tl, y - (dy / L) * tl); ctx.lineTo(x, y); ctx.stroke();
+    }
+    for (const k of this.streaks) {
+      const gr = ctx.createLinearGradient(0, k.y - k.len, 0, k.y);
+      gr.addColorStop(0, rgba(k.c, 0)); gr.addColorStop(1, rgba(k.c, k.a));
+      ctx.strokeStyle = gr; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(k.x, k.y - k.len); ctx.lineTo(k.x, k.y); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
   drawNeb() {
     const n = this.neb, H = this.NH;
     let y = (this.nebOff || 0) - H;
@@ -351,11 +408,16 @@ export class Background {
       this.drawNeb();
       ctx.globalAlpha = 1;
       this.drawTile(this.stars[0].L, this.stars[0].off, this.stars[0].h);
-      if (this.far) ctx.drawImage(this.far.cv, this.far.x - this.far.size / 2, this.far.y - this.far.size / 2, this.far.size, this.far.size);
+      if (this.far) { // l'astre grossit doucement en approchant (profondeur)
+        const F = this.far, u = Math.max(0, Math.min(1, (F.y + F.size / 2) / (view.h + F.size))), sz = F.size * (0.82 + 0.42 * u);
+        ctx.drawImage(F.cv, F.x - sz / 2, F.y - sz / 2, sz, sz);
+      }
       this.drawTile(this.stars[1].L, this.stars[1].off, this.stars[1].h);
       if (this.mega) this.drawMega();
       this.drawSun();
+      this.drawNeb2();
       this.drawTile(this.stars[2].L, this.stars[2].off, this.stars[2].h);
+      this.drawDust();
       this.drawTwinkles();
       if (this.side) this.drawSides();
       for (const r of this.sideRocks) this.drawRock(r, r.s, 1);
