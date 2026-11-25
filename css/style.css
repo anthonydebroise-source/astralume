@@ -566,3 +566,25 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px;
   background: radial-gradient(circle at 50% 32%, #ff9be9, #d0189a 60%, #7a0a5c); box-shadow: 0 0 0 3px #150b40, 0 0 0 5px #ff4fd8, 0 0 24px #ff4fd8; }
 .navb.main .ni svg { width: 32px; height: 32px; }
 .navb.main small { color: #ff8be8; }
+/* Résultats : zone qui défile + boutons fixés en bas (toujours atteignables) */
+.results { overflow: hidden; padding-bottom: calc(var(--sb) + 8px); }
+.res-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px 0 10px; display: flex; flex-direction: column; }
+.res-body .arc-score { margin: 6px auto 4px; }
+.res-body .stars { margin: 2px 0; }
+.res-body .star { width: 38px; height: 38px; }
+.res-foot { flex: none; display: flex; gap: 8px; padding-top: 8px; border-top: 1px solid rgba(170,150,255,.16); background: linear-gradient(180deg, rgba(8,5,26,0), rgba(8,5,26,.75) 40%); }
+.res-foot .btn { flex: 1; min-width: 0; padding-left: 6px; padding-right: 6px; }
+.res-foot .btn.primary { flex: 1.25; }
+.rgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px; }
+.rtile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 7px 2px 6px; border-radius: 12px; background: linear-gradient(180deg, rgba(40,28,96,.85), rgba(12,9,36,.9)); box-shadow: inset 0 0 0 1px rgba(170,150,255,.22), inset 0 1px 0 rgba(255,255,255,.08); text-align: center; min-width: 0; }
+.rtile .ic, .rtile img { width: 22px; height: 22px; }
+.rtile b { font-family: var(--fc); font-weight: 900; font-size: 17px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.rtile span { font-size: 10px; line-height: 1.15; color: rgba(220,210,255,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.rtile.gold { box-shadow: inset 0 0 0 1px rgba(255,210,63,.5), 0 0 12px rgba(255,190,60,.18); }
+.rtile.chest { box-shadow: inset 0 0 0 1px rgba(255,210,63,.65), 0 0 16px rgba(255,190,60,.3); animation: chestPulse 1.6s ease-in-out infinite; }
+.rtile.chest img { width: 30px; height: 30px; margin: -4px 0 -2px; }
+.rtile.chest b { font-size: 13px; color: var(--gold); }
+@keyframes chestPulse { 50% { box-shadow: inset 0 0 0 1px rgba(255,230,120,.9), 0 0 22px rgba(255,190,60,.5); } }
+.res-xp { margin-top: 8px; padding: 8px 12px; }
+.res-xp .bar { margin-top: 4px; }
+@media (max-height: 600px) { .res-body .arc-title { font-size: 28px !important; } .res-body .arc-score > b { font-size: 24px; } .rtile { padding: 5px 2px 4px; } }

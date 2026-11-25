@@ -440,53 +440,51 @@ export function continueMenu(game) {
 register('results', {
   build(R) {
     const win = R.victory;
-    const el = h('div', { class: 'results', style: 'justify-content:flex-start;overflow-y:auto;padding-top:10px' });
+    const el = h('div', { class: 'results' });
     const stars = h('div', { class: 'stars' }, ...[0, 1, 2].map((i) => h('div', { class: 'star' + (i === 1 ? ' s2' : ''), html: SVG.star })));
-    const lines = h('div', { class: 'panel' });
-    const add = (label, cur, n, cls = '') => {
-      if (!n) return;
-      const v = h('span', { class: 'v ' + cls }, cur ? curIcon(cur) : null, h('b', null, '0'));
-      lines.append(h('div', { class: 'rline' }, h('span', null, label), v));
-      R.anims.push({ el: v.querySelector('b'), n });
+    // Récompenses en tuiles compactes (tout tient à l'écran, même après un colosse)
+    const lines = h('div', { class: 'rgrid' });
+    const tile = (label, icon, n, cls = '') => {
+      const b = h('b', null, '0');
+      lines.append(h('div', { class: 'rtile ' + cls }, icon, b, h('span', null, label)));
+      R.anims.push({ el: b, n });
     };
+    const add = (label, cur, n, cls = '') => { if (n) tile(label, curIcon(cur), n, cls); };
     R.anims = [];
-    add('Pièces ramassées', 'coins', R.got.coins);
-    add('Prime de victoire', 'coins', R.bonus.coins);
+    add('Pièces', 'coins', R.got.coins);
+    add('Prime', 'coins', R.bonus.coins, 'gold');
     add('Cristaux', 'crystals', R.got.crystals + (R.bonus.crystals || 0));
     add('Gemmes', 'gems', R.got.gems + (R.bonus.gems || 0));
     add('Composants', 'parts', R.got.parts + (R.bonus.parts || 0));
-    if (R.newStarCrystals) add('Nouvelles étoiles', 'crystals', R.newStarCrystals);
-    if (R.shardsN) {
-      const v = h('span', { class: 'v' }, h('img', { src: iconURL('shard_' + R.shardShip, 48), class: 'ic', style: 'width:20px;height:20px;vertical-align:-5px' }), h('b', null, '0'));
-      lines.append(h('div', { class: 'rline' }, h('span', null, 'Éclats ' + SHIP_BY_ID[R.shardShip].name), v));
-      R.anims.push({ el: v.querySelector('b'), n: R.shardsN });
-    }
+    if (R.newStarCrystals) add('Étoiles', 'crystals', R.newStarCrystals);
+    if (R.shardsN) tile('Éclats ' + SHIP_BY_ID[R.shardShip].name, h('img', { src: iconURL('shard_' + R.shardShip, 48), class: 'ic' }), R.shardsN);
+    if (R.chest) lines.append(h('div', { class: 'rtile chest' }, h('img', { src: iconURL('chest_' + R.chest, 64), class: 'ic' }), h('b', null, 'Coffre'), h('span', null, 'dans Coffres')));
     const xpb = h('div', { class: 'bar' }, h('i', { style: `width:${Math.round(R.xpFrom * 100)}%` }));
-    const statsLine = h('div', { class: 'muted small center', style: 'margin-top:8px' }, `${R.stats.kills} aliens · chaîne max ${R.stats.maxChain} · ${R.stats.constellations} constellation(s)` + (R.stats.perfects ? ` · ${R.stats.perfects} PARFAIT` : '') + (R.seasonPts ? ` · +${R.seasonPts} pts de saison` : ''));
+    const statsLine = h('div', { class: 'muted small center', style: 'margin-top:6px' }, `${R.stats.kills} aliens · chaîne max ${R.stats.maxChain} · ${R.stats.constellations} constellation(s)` + (R.stats.perfects ? ` · ${R.stats.perfects} PARFAIT` : '') + (R.seasonPts ? ` · +${R.seasonPts} pts de saison` : ''));
     const next = Math.min(320, R.def.L + 1);
     const scoreB = h('b', null, '00000000');
     const scoreBox = h('div', { class: 'arc-score' }, h('div', { class: 'arc-lab' }, 'SCORE'), scoreB,
       h('div', { class: 'arc-hi' }, R.record ? h('span', { class: 'newrec-badge' }, 'NEW RECORD !') : `RECORD ${String(R.prevHi || 0).padStart(8, '0')}`),
       R.rank ? h('div', { class: 'rank rank-' + R.rank }, R.rank) : null);
     R.scoreEl = scoreB;
-    el.append(...[
+    const body = h('div', { class: 'res-body' }, ...[
       R.versus && R.versus.win !== null ? h('h1', { class: 'arc-title ' + (R.versus.win ? 'win' : 'lose') }, R.versus.win ? 'VICTOIRE' : 'DÉFAITE') : h('h1', { class: 'arc-title ' + (win ? 'win' : 'lose') }, R.def.mode === 'endless' ? 'GAME OVER' : win ? 'STAGE CLEAR' : 'GAME OVER'),
       h('div', { class: 'center', style: 'font-weight:800;margin-top:-4px' }, R.modeLine || (win ? (R.def.kind === 'boss' ? 'Étoile rallumée !' : 'Secteur nettoyé !') : 'Coque détruite')),
-      h('div', { class: 'center muted' }, `Secteur ${R.def.code} · ${R.def.name} · ${DIFFS[R.def.diff].name}`),
+      h('div', { class: 'center muted small' }, `Secteur ${R.def.code} · ${R.def.name} · ${DIFFS[R.def.diff].name}`),
       scoreBox,
       R.versus ? versusPanel(R) : null,
       win && !R.def.mode ? stars : null,
       R.first && win ? h('div', { class: 'newrec' }, 'Premier passage — récompenses doublées !') : null,
-      lines,
-      R.chest ? h('div', { class: 'panel glow-gold center', style: 'margin-top:8px' }, h('img', { src: iconURL('chest_' + R.chest, 64), style: 'width:44px;vertical-align:middle' }), ' ', h('b', null, 'Coffre gagné ! '), h('span', { class: 'muted' }, 'À ouvrir dans Coffres')) : null,
-      h('div', { class: 'panel', style: 'margin-top:8px' }, h('div', { class: 'row' }, h('b', null, `Pilote niv. ${R.lvlFrom}`), h('div', { class: 'spacer' }), h('span', { class: 'muted small' }, `+${R.xp} XP`)), xpb),
+      lines.children.length ? lines : null,
+      h('div', { class: 'panel res-xp' }, h('div', { class: 'row' }, h('b', null, `Pilote niv. ${R.lvlFrom}`), h('div', { class: 'spacer' }), h('span', { class: 'muted small' }, `+${R.xp} XP`)), xpb),
       statsLine,
-      h('div', { class: 'row', style: 'margin-top:14px' },
-        R.versus ? btn('Multijoueur', 'ghost', () => go('versus', {}, false)) : R.def.mode ? btn('Modes', 'ghost', () => go('modes', {}, false)) : btn('Carte', 'ghost', () => go('world', { w: R.def.w }, false)),
-        R.versus ? (R.versus.kind === 'duel' ? btn(R.versus.rival ? 'Revanche' : 'Rejouer', '', () => app.restart()) : null) : btn('Rejouer', '', () => (R.def.mode ? app.startMode(R.def.mode) : app.startLevel(R.def.L, R.def.diff, {}))),
-        h('div', { class: 'spacer' }),
-        win && !R.def.mode && R.def.L < 320 ? btn('Suivant ▸', 'primary', () => { go('hub', {}, false); levelSheet(next); }) : btn('Accueil', 'primary', () => go('hub', {}, false))),
     ].filter(Boolean));
+    // Boutons toujours visibles, collés en bas de l'écran (hors de la zone qui défile)
+    const foot = h('div', { class: 'res-foot' },
+      R.versus ? btn('Multijoueur', 'ghost', () => go('versus', {}, false)) : R.def.mode ? btn('Modes', 'ghost', () => go('modes', {}, false)) : btn('Carte', 'ghost', () => go('world', { w: R.def.w }, false)),
+      R.versus ? (R.versus.kind === 'duel' ? btn(R.versus.rival ? 'Revanche' : 'Rejouer', '', () => app.restart()) : null) : btn('Rejouer', '', () => (R.def.mode ? app.startMode(R.def.mode) : app.startLevel(R.def.L, R.def.diff, {}))),
+      win && !R.def.mode && R.def.L < 320 ? btn('Suivant ▸', 'primary', () => { go('hub', {}, false); levelSheet(next); }) : btn('Accueil', 'primary', () => go('hub', {}, false)));
+    el.append(body, foot);
     R.starsEl = stars; R.xpEl = xpb.querySelector('i');
     return el;
   },

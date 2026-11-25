@@ -11,6 +11,7 @@ import { BOSS_ART, buildBossArt, drawWound, drawReactor } from './bossart.js';
 import './bossart2.js';
 import './bossart3.js';
 import { headAngle } from './bossart4.js';
+import { SIG, PLAN, PART_ATT, MOVES, ATT_NAME, LINK } from './bossatt.js';
 
 const PART_NAMES = { cannon: 'Canon', arm: 'Bras', shell: 'Carapace', pod: 'Couveuse', segment: 'Anneau', core: 'Noyau' };
 const PART_LABEL = { dread: { shell: 'Batterie', arm: 'Lance-missiles', pod: 'Hangar', cannon: 'Tourelle' }, ring: { segment: 'Module', shell: 'Rayon' }, seraph: { shell: 'Grande aile', arm: 'Aile', cannon: 'Auréole' }, hydra: { shell: 'Épaulière', arm: 'Tête', cannon: 'Épine' }, hive: { pod: 'Alvéole', shell: 'Aile', arm: 'Mandibule', cannon: 'Dard' } };
@@ -516,7 +517,7 @@ ARCH.hydra = {
     b.add(P('core', 0, 6, 24, 1050, null));
     b.add(P('shell', -60, -14, 30, 430, 'scaleVolley', 3.4, { shield: true }));
     b.add(P('shell', 60, -14, 30, 430, 'scaleVolley', 3.4, { shield: true }));
-    [[-62, 74, 'venomSpit'], [0, 92, 'fireBreath'], [62, 74, 'venomSpit']].forEach(([x, y, att], i) => b.add(P('arm', x, y, 19, 300, att, att === 'fireBreath' ? 4.2 : 3.0, { i })));
+    [[-62, 74, 'venomStream'], [0, 92, 'fireStream'], [62, 74, 'venomStream']].forEach(([x, y, att], i) => b.add(P('arm', x, y, 19, 300, att, att === 'fireStream' ? 4.2 : 3.4, { i })));
     b.add(P('cannon', -30, -56, 12, 200, 'aimedBurst', 2.6));
     b.add(P('cannon', 30, -56, 12, 200, 'aimedBurst', 2.6));
     b.coreAtt = ['tripleBreath', 'tidalCoil', 'hydraRoar', 'rage'];
@@ -595,6 +596,11 @@ ARCH.hive = {
 };
 ATT.eyeLaserCore = (b, g, s, l) => { const a = angTo(b.cx(), b.cy(), g.player.x, g.player.y); g.addLaser(b.cx(), b.cy(), a, 0.85, 1.1, 24, g.pal.bullet); if (l > 1.4) g.later(1.2, () => !b.dead && g.addLaser(b.cx(), b.cy(), angTo(b.cx(), b.cy(), g.player.x, g.player.y), 0.7, 0.9, 20, g.pal.bullet)); };
 
+// Signatures propres à chaque colosse (voir bossatt.js)
+Object.assign(ATT, SIG);
+LINK.ATT = ATT; LINK.mouth = mouth;
+for (const k in MOVES) if (ARCH[k] && !ARCH[k].move) ARCH[k].move = MOVES[k];
+
 export function prebakeBoss(g, arch, mini) {
   if (!BOSS_ART[arch]) return;
   try { buildBossArt(arch, { c1: g.pal.enemy, c2: g.pal.enemy2, cg: g.pal.eglow, dk: g.pal.edark }, clamp(view.rs * (mini ? 0.7 : 1), 1, 3)); } catch (e) { console.error(e); }
@@ -615,6 +621,10 @@ export class Boss {
     this.coreAtt = ['spiral3'];
     this.coreCd = 3; this.coreIdx = 0; this.coreOpen = false; this.coreNeeds = 0.5;
     this.A.build(this);
+    // Armes, blessures et grandes attaques propres à ce colosse
+    const plan = PLAN[this.archId], pa = PART_ATT[this.archId];
+    if (plan) { this.coreAtt = plan.core.slice(); this.coreLight = plan.light; this.woundAtt = plan.wound; this.woundMsg = plan.woundMsg; }
+    if (pa) for (const p of this.parts) { const r = pa[p.kind]; if (r && p.att) { p.att = r[0]; p.rate = r[1]; p.cd = rand(0.8, 2.2) + r[1] * 0.3; } }
     this.AA = BOSS_ART[this.archId] || null;
     if (this.AA) this.art = buildBossArt(this.archId, this.col, clamp(view.rs * this.sc, 1, 3));
     const hs = g.D.hp * (this.mini ? 0.5 : 1) * (1 + this.tier * 0.15) * (g.def.L > 300 ? 1.2 : 1);
@@ -715,11 +725,16 @@ export class Boss {
       if (this.coreOpen) {
         const a = this.coreAtt[Math.min(this.coreAtt.length - 1, this.coreIdx % this.coreAtt.length)];
         this.coreIdx++;
-        ATT[a](this, g, { x: this.cx(), y: this.cy() }, lvl + 0.5);
+        if (ATT_NAME[a]) g.msg(ATT_NAME[a], this.col.cg, 17, 1.1);
+        ATT[a](this, g, { x: this.cx(), y: this.cy(), part: this.core }, lvl + 0.5);
         this.coreCd = 3.4 - Math.min(1.2, this.rage * 0.1);
       } else {
         const a = this.coreAtt[Math.min(this.phase, this.coreAtt.length - 2) % this.coreAtt.length];
-        if (this.phase >= 2 || this.mini === false && this.t > 4) ATT[this.phase >= 3 ? a : 'aimedBurst'](this, g, { x: this.cx(), y: this.cy(), part: this.core }, lvl);
+        if (this.phase >= 2 || this.mini === false && this.t > 4) {
+          const k = this.phase >= 3 ? a : this.coreLight || 'aimedBurst';
+          if (this.phase >= 3 && ATT_NAME[k]) g.msg(ATT_NAME[k], this.col.cg, 17, 1.1);
+          ATT[k](this, g, { x: this.cx(), y: this.cy(), part: this.core }, lvl);
+        }
         this.coreCd = 5.5;
       }
     }
@@ -741,6 +756,8 @@ export class Boss {
       this.state = 'dying'; this.dieT = 2.2; this.st = 0;
       g.slowmo(2.2, 0.35);
       g.cancelBullets(null, true);
+      g.clearHazards();
+      this.rush = this.pounce = this.dashM = null;
       sfx.roar();
       return;
     }
@@ -749,12 +766,12 @@ export class Boss {
     flash(this.col.cg, 0.35); hitstop(0.06);
     sfx.partBreak();
     g.spawnSalvage(p.x, p.y, Math.max(16, p.r), this.col, this.art);
-    const w = WOUND[p.kind];
+    const w = this.woundAtt || WOUND[p.kind];
     this.wounds.push({ ox: p.ox, oy: p.oy, att: w, cd: 1.2, r: p.r, part: p });
     const mech = !!PART_LABEL[this.archId];
     const MM = { dread: { shell: 'Batterie détruite !', arm: 'Lance-missiles détruit !', pod: 'Hangar détruit !', cannon: 'Tourelle détruite !' }, ring: { segment: 'Module détruit !', shell: 'Rayon brisé !' }, seraph: { shell: 'Grande aile arrachée !', arm: 'Aile arrachée !', cannon: 'Auréole brisée !' }, hydra: { shell: 'Épaulière brisée !', arm: 'Tête tranchée !', cannon: 'Épine arrachée !' }, hive: { pod: 'Alvéole crevée !', shell: 'Aile déchirée !', arm: 'Mandibule brisée !', cannon: 'Dard arraché !' } };
     g.msg((mech && MM[this.archId][p.kind]) || { cannon: 'Canon détruit !', arm: 'Bras arraché !', shell: 'Carapace brisée !', pod: 'Couveuse crevée !', segment: 'Anneau détruit !' }[p.kind] || 'Partie détruite !', this.col.cg, 22);
-    if (w && WOUND_MSG[w]) g.later(0.6, () => g.msg(mech ? 'La brèche crache du feu !' : WOUND_MSG[w], '#ffffff', 15, 1.8));
+    if (w && (this.woundMsg || WOUND_MSG[w])) g.later(0.6, () => g.msg(this.woundMsg || (mech ? 'La brèche crache du feu !' : WOUND_MSG[w]), '#ffffff', 15, 1.8));
     if (this.A.onPartLost) this.A.onPartLost(this, p);
     if (p.kind === 'pod') ATT.summon(this, g, { x: p.x, y: p.y });
     if (p.kind === 'segment') ATT.segBurst(this, g, { x: p.x, y: p.y });
