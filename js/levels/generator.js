@@ -41,12 +41,12 @@ export const CHALLENGES = {
 const ARCH_NAMES = {
   jelly: 'Méduse Matriarche', flower: 'Fleur Dévorante', crab: 'Crabe-Citadelle', eye: 'Œil de la Nuée',
   mantis: 'Mante Prismatique', worm: 'Grand Ver Astral', heart: 'Cœur de la Nuée',
-  dread: 'Cuirassé Vortex', ring: 'Forteresse Halo', seraph: 'Séraphin d’Ivoire',
+  dread: 'Cuirassé Vortex', ring: 'Forteresse Halo', seraph: 'Séraphin d’Ivoire', hydra: 'Hydre Abyssale', hive: 'Ruche-Mère',
 };
 const MINI_NAMES = {
   jelly: 'Méduse sentinelle', flower: 'Bourgeon carnivore', crab: 'Crabe gardien', eye: 'Œil veilleur',
   mantis: 'Mante éclaireuse', worm: 'Ver gardien', heart: 'Cœur gardien',
-  dread: 'Frégate gardienne', ring: 'Anneau sentinelle', seraph: 'Chérubin gardien',
+  dread: 'Frégate gardienne', ring: 'Anneau sentinelle', seraph: 'Chérubin gardien', hydra: 'Hydre juvénile', hive: 'Ruche ouvrière',
 };
 const EPITHETS = ['d’Opale', 'Aux Mille Lueurs', 'l’Insatiable', 'du Vide', 'la Dévoreuse', 'Écarlate', 'des Abysses', 'l’Ancienne', 'Prismatique', 'du Crépuscule', 'Sans Repos', 'la Vorace'];
 
@@ -323,7 +323,7 @@ function buildChallenge(def, rng) {
 }
 
 // ================= MODES SPÉCIAUX =================
-const BOSS_POOL = ['jelly', 'crab', 'flower', 'eye', 'mantis', 'worm', 'dread', 'ring', 'seraph', 'heart'];
+const BOSS_POOL = ['jelly', 'crab', 'flower', 'eye', 'mantis', 'worm', 'dread', 'ring', 'seraph', 'hydra', 'hive', 'heart'];
 function modeDef(L, mode, name, code) {
   const def = buildLevel(L, 0);
   def.timeline = [{ t: 0.3, kind: 'banner' }];
@@ -347,7 +347,7 @@ export function endlessChunk(def, t0, k) {
 export function buildBossRush(Lbase, seed = Date.now()) {
   const def = modeDef(Math.max(10, Lbase), 'rush', 'Ruée des colosses', 'RUSH');
   const rng = new RNG(seed >>> 0);
-  const pool = rng.shuffle(BOSS_POOL.slice(0, 9));
+  const pool = rng.shuffle(BOSS_POOL.filter((a) => a !== 'heart'));
   def.rush = pool.slice(0, 5).map((arch, i) => ({ kind: 'boss', arch, mini: false, tier: Math.min(3, i), name: `${ARCH_NAMES[arch]} ${EPITHETS[(i * 5 + 3) % EPITHETS.length]}` }));
   def.bossMusic = 'boss';
   def.timeline.push({ t: 1.4, kind: 'radio', key: 'boss' });

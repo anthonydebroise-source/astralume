@@ -356,7 +356,7 @@ register('trophies', {
       droneGrid.append(h('div', { class: 'tro-card' + (own ? '' : ' locked'), style: `--c:${own ? d.color : '#5a6080'}` }, cv, h('b', { style: own ? `color:${d.color}` : '' }, own ? d.name : '???'), h('small', null, own ? `Niv. ${S.drones[d.id].lvl} · ${E.droneDuration(d.id)} s` : `Niveau ${d.req}`)));
     }
     const bossRow = h('div', { class: 'tro-boss' });
-    const BN = { jelly: 'Méduse', crab: 'Crabe', flower: 'Fleur', eye: 'Œil', mantis: 'Mante', worm: 'Ver', heart: 'Cœur', dread: 'Cuirassé', ring: 'Forteresse', seraph: 'Séraphin' };
+    const BN = { jelly: 'Méduse', crab: 'Crabe', flower: 'Fleur', eye: 'Œil', mantis: 'Mante', worm: 'Ver', heart: 'Cœur', dread: 'Cuirassé', ring: 'Forteresse', seraph: 'Séraphin', hydra: 'Hydre', hive: 'Ruche' };
     for (const [k, nm] of Object.entries(BN)) { const n = (S.trophyBoss || {})[k] || 0; bossRow.append(h('div', { class: 'tb' + (n ? '' : ' locked') }, h('span', null, n ? '🏆' : '🔒'), h('b', null, nm), h('small', null, n ? '×' + n : '—'))); }
     return h('div', null, topbar('Trophées'), h('div', { class: 'scroll' }, head,
       h('div', { class: 'subtitle' }, 'Vaisseaux'), shipGrid,
