@@ -91,6 +91,43 @@ export function updatePath(e, dt, g) {
       }
       break;
     }
+    case 'parade': {
+      const F = p.F, T = g ? g.t : p.t;
+      // position de l'emplacement dans la formation (ondulation + respiration communes)
+      const k = 1 + 0.06 * Math.sin(T * 1.5);
+      const sx = F.cx + (p.tx - F.cx) * k + Math.sin(T * 0.7) * 14, sy = p.ty + Math.sin(T * 1.1 + p.tx * 0.02) * 4;
+      if (p.ph === 0) { // entrée chorégraphiée
+        p.calm = !p.danger;
+        const n = p.pts.length / 2 - 1, u = Math.min(1, p.t / p.dur) * n, i = Math.min(n - 1, Math.floor(u)), f = u - i;
+        e.x = p.pts[i * 2] + (p.pts[i * 2 + 2] - p.pts[i * 2]) * f; e.y = p.pts[i * 2 + 1] + (p.pts[i * 2 + 3] - p.pts[i * 2 + 1]) * f;
+        if (p.t >= p.dur) { p.ph = 1; p.t0 = p.t; p.ex = e.x; p.ey = e.y; }
+      } else if (p.ph === 1) { // rejoint son emplacement
+        const u = ease.inOutCubic(Math.min(1, (p.t - p.t0) / 0.9));
+        e.x = p.ex + (sx - p.ex) * u; e.y = p.ey + (sy - p.ey) * u;
+        if (u >= 1) { p.ph = 2; p.t0 = p.t; }
+      } else if (p.ph === 2) { // en formation
+        e.x = sx; e.y = sy; p.hovering = true; p.calm = false;
+        if (p.t - p.t0 > p.stay) { p.ph = 4; p.t0 = p.t; p.hovering = false; }
+        else if (F.rate && p.t - p.t0 > 1.5 && Math.random() < dt * F.rate * 3) {
+          F.divers = (F.divers || []).filter((x) => !x.dead && x.path.ph === 3);
+          if (F.divers.length < F.maxDive) { F.divers.push(e); p.ph = 3; p.t0 = p.t; p.dx = g ? g.player.x : W / 2; p.hovering = false; p.dsx = e.x; p.dsy = e.y; p.side = e.x < W / 2 ? 1 : -1; }
+        }
+      } else if (p.ph === 3) { // plongeon sur le joueur, sortie par le bas puis retour par le haut
+        const s = p.t - p.t0, D = 3.2;
+        if (s < D * 0.62) {
+          const u = s / (D * 0.62);
+          e.x = p.dsx + (p.dx - p.dsx) * ease.inOutCubic(u) + Math.sin(u * Math.PI * 2) * 34 * p.side; e.y = p.dsy + (H + 60 - p.dsy) * u * u;
+        } else {
+          const u = Math.min(1, (s - D * 0.62) / (D * 0.38));
+          e.x = sx + (1 - u) * 40 * p.side; e.y = -40 + (sy + 40) * ease.outCubic(u);
+          if (u >= 1) { p.ph = 2; p.t0 = p.t - 1.5; }
+        }
+      } else { // départ : la formation s'envole
+        const s = p.t - p.t0;
+        e.x = sx + Math.sin(s * 3 + p.tx) * 10; e.y = sy - s * s * 160;
+      }
+      break;
+    }
     case 'orbit': {
       const sx = p.cx + Math.cos(p.a) * p.r, sy = p.cy + Math.sin(p.a) * p.r;
       if (p.t < p.inDur) {

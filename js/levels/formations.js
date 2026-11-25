@@ -166,6 +166,29 @@ export function formationSpawns(ev) {
       out.push({ d: 0, x: W * (side ? 0.8 : 0.2), y: -30, path: { k: 'snake', spd: 85, amp: W * 0.33, f: 0.9, x0: W / 2, side } });
       break;
     }
+    case 'parade': { // Chorégraphie : entrées en boucles/spirales, puis formation qui ondule (plongeons si dangereuse)
+      const rows = ev.rows || 3, cols = ev.cols || 6, types = ev.types || [ev.type];
+      const danger = !!ev.danger, rowH = 38, top0 = top + 64;
+      const F = { cx: W / 2, diving: 0, maxDive: danger ? (rows >= 4 ? 3 : 2) : 0, rate: danger ? 0.035 + Math.min(0.03, (ev.prog || 0) / 4000) : 0 };
+      const kinds = ev.choreo || ['loop', 'spiral', 'eight', 'snake', 'cascade', 'cross'];
+      const stay = ev.stay || 12;
+      const groups = rows;
+      for (let gi = 0; gi < groups; gi++) {
+        const r = gi, kind = kinds[(gi + rng.int(0, kinds.length - 1)) % kinds.length], mirror = (gi + side) % 2 ? -1 : 1;
+        const { pts, dur } = choreo(kind, mirror, W, H, top, danger, rng);
+        const per = r % 2 ? cols - 1 : cols;
+        const g0 = gi * 1.55;
+        for (let c = 0; c < per; c++) {
+          const odd = r % 2 ? 0.5 : 0;
+          const tx = W * (c + 1 + odd) / (cols + 1), ty = top0 + (rows - 1 - r) * rowH;
+          const cr = kind === 'cross' && c % 2 ? choreo('cross', -mirror, W, H, top, danger, rng) : null;
+          const P = cr ? cr.pts : pts;
+          out.push({ d: g0 + c * 0.17, x: P[0], y: P[1], type: types[Math.min(r, types.length - 1)], fm: danger ? 0.85 : 0.55, lm: 0.8,
+            path: { k: 'parade', pts: P, dur: cr ? cr.dur : dur, tx, ty, F, danger, stay: stay - gi * 0.5, ph: 0 } });
+        }
+      }
+      break;
+    }
     // ---------- Sol ----------
     case 'gline': {
       const k = rng.int(2, 4);
@@ -187,6 +210,52 @@ export function formationSpawns(ev) {
     }
   }
   return out;
+}
+
+// Trajectoires d'entrée chorégraphiées (polylignes échantillonnées dans le temps)
+function choreo(kind, m, W, H, top, danger, rng) {
+  const N = 72, pts = [];
+  const X = (x) => W * (0.5 + (x - 0.5) * m), Y = (y) => top + H * y;
+  const low = danger ? 0.62 : 0.45; // les chorégraphies dangereuses descendent plus bas
+  const bez = (u, a, b, c, d) => { const v = 1 - u; return v * v * v * a + 3 * v * v * u * b + 3 * v * u * u * c + u * u * u * d; };
+  let dur = 3.6;
+  for (let i = 0; i <= N; i++) {
+    const u = i / N;
+    let x, y;
+    switch (kind) {
+      case 'loop': { // descente en courbe puis boucle complète
+        if (u < 0.4) { const k = u / 0.4; x = bez(k, -0.12, 0.25, 0.3, 0.42); y = bez(k, 0.05, 0.0, low, low * 0.82); }
+        else { const k = (u - 0.4) / 0.6, a = Math.PI * 0.5 + k * Math.PI * 2; x = 0.42 + Math.cos(a) * 0.16 - 0.0; y = low * 0.82 - 0.11 + Math.sin(a) * 0.11 + (1 - Math.sin(a)) * 0; }
+        dur = 4.2; break;
+      }
+      case 'spiral': { // spirale qui se resserre
+        const a = -Math.PI / 2 + u * Math.PI * 3.2, rr = 0.42 * (1 - u * 0.75);
+        x = 0.5 + Math.cos(a) * rr; y = (low * 0.6) + Math.sin(a) * rr * 0.55 * H / H; if (u < 0.08) y -= (0.08 - u) * 3;
+        dur = 4.6; break;
+      }
+      case 'eight': { // huit couché (lissajous) arrivant par le côté
+        const a = u * Math.PI * 2;
+        x = 0.5 + Math.sin(a + Math.PI * 0.5) * 0.4 * (u < 0.12 ? 1 + (0.12 - u) * 6 : 1); y = 0.2 + Math.sin(a * 2) * 0.12 + u * (low - 0.3);
+        dur = 4.4; break;
+      }
+      case 'snake': { // serpentin qui descend puis remonte
+        x = 0.5 + Math.sin(u * Math.PI * 3) * 0.38; y = -0.05 + Math.sin(u * Math.PI) * (low + 0.05);
+        dur = 4.2; break;
+      }
+      case 'cascade': { // longe le bord puis remonte en crochet
+        if (u < 0.55) { const k = u / 0.55; x = bez(k, 0.06, 0.02, 0.05, 0.22); y = bez(k, -0.06, 0.25, low, low); }
+        else { const k = (u - 0.55) / 0.45; x = bez(k, 0.22, 0.45, 0.65, 0.5); y = bez(k, low, low, 0.2, 0.25); }
+        dur = 3.8; break;
+      }
+      default: { // cross : deux flots qui se croisent au centre
+        x = bez(u, -0.1, 0.4, 0.75, 0.35); y = bez(u, 0.12, low * 0.9, low * 0.4, 0.22);
+        dur = 3.4;
+      }
+    }
+    pts.push(X(x), Y(y));
+  }
+  void rng;
+  return { pts, dur };
 }
 
 // Motifs de pièces pour la « pluie de pièces »

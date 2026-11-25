@@ -154,7 +154,7 @@ function buildWaves(def, rng, forced, full) {
   if (def.L <= 2) pool = ['globule', 'dardeur', 'tournoyeur'];
   else if (def.L <= 6) pool = pool.filter((t) => !['pondeuse', 'serpent', 'phasme', 'cuirasse'].includes(t)).concat(['globule']);
   if (def.trait === 'tresor') pool.push('mimique');
-  const nW = forced || (10 + Math.min(5, Math.floor(prog / 40)) + rng.int(0, 2) + (def.trait === 'ruee' ? 2 : 0));
+  const nW = forced || (12 + Math.min(5, Math.floor(prog / 40)) + rng.int(0, 2) + (def.trait === 'ruee' ? 2 : 0));
   const gap = def.trait === 'ruee' ? 0.7 : 1;
   let t = 2.6;
   const lastT = [], lastF = [];
@@ -176,8 +176,26 @@ function buildWaves(def, rng, forced, full) {
   if (full && prog > 50 && rng.chance(0.5)) swarms.push(Math.floor(nW * 0.3));
   if (full && def.L >= 8 && rng.chance(0.55)) walls.push(Math.floor(nW * 0.55) === swarms[0] ? Math.floor(nW * 0.7) : Math.floor(nW * 0.55));
   const smalls = pool.filter((x) => CLS[x] === 's' && x !== 'mimique');
+  // Chorégraphies (parades) : les aliens entrent en figures puis se rangent en formation
+  const parades = [];
+  if (full) { parades.push(1); if (def.L >= 4) parades.push(Math.floor(nW * 0.5)); if (def.L >= 10) parades.push(nW - 2); }
+  else parades.push(0);
+  let paradeN = 0;
   for (let w = 0; w < nW; w++) {
     const intensity = nW > 1 ? w / (nW - 1) : 1;
+    if (parades.includes(w) && !armadas.includes(w) && !swarms.includes(w)) {
+      const danger = def.L > 3 && (paradeN > 0 || rng.chance(0.3)) && rng.chance(0.45 + Math.min(0.35, prog / 300));
+      const rows = def.L < 6 ? 3 : prog > 80 ? 4 : rng.int(3, 4), cols = prog > 60 ? 7 : 6;
+      const calmTypes = ['globule', 'tournoyeur'];
+      const types = [];
+      for (let r = 0; r < rows; r++) types.push(danger && r >= rows - 2 && prog > 10 ? rng.pick(['canonnier', 'mortier', 'globule']) : calmTypes[(r + paradeN) % 2]);
+      const kinds = rng.shuffle(['loop', 'spiral', 'eight', 'snake', 'cascade', 'cross']);
+      tl.push({ t, kind: 'wave', form: 'parade', type: types[0], types, rows, cols, n: rows * cols - Math.floor(rows / 2), danger, choreo: kinds, prog, stay: 11 + rows, seed: rng.int(1, 1e9), carrier: true });
+      tl.push({ t: t + 0.3, kind: 'radio', key: danger ? 'paradeD' : 'parade' });
+      paradeN++;
+      t += 12 + rows * 2;
+      if (!full) continue;
+    }
     if (armadas.includes(w)) {
       const front = smalls.length ? rng.pick(smalls) : 'globule';
       const front2 = smalls.length > 1 ? rng.pick(smalls.filter((x) => x !== front)) : front;

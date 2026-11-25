@@ -798,7 +798,7 @@ export class Game {
       if (e.dead) continue;
       const out = updatePath(e, dt, this) || e.gone;
       if (out) { e.dead = true; e.escaped = true; if (e.elite && e.primary && !e.ground) this.msg('L’élite s’est enfuie…', '#ffd23f', 14, 1.2); continue; }
-      if (T.fire && !this.def.noFire && e.entered && !e.hidden && e.y > top + 12 && e.y < view.h * 0.72 && p.alive && this.state === 'play') {
+      if (T.fire && !this.def.noFire && e.entered && !e.hidden && !e.path.calm && e.y > top + 12 && e.y < view.h * 0.72 && p.alive && this.state === 'play') {
         e.fcd -= dt * this.D.fire * (e.elite ? 1.4 : 1) * (e.fm || 1);
         if (e.fcd <= 0 && (this.onHalf || e.fcd < -0.8)) {
           if (dist2(e.x, e.y, p.x, p.y) > 80 * 80) T.fire(e, this);
