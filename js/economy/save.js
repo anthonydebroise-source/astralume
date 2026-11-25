@@ -35,6 +35,8 @@ export function defaults() {
     },
     seenIntro: false,
     lastDiff: 0,
+    pseudo: '',             // nom affiché en multijoueur
+    duel: { w: 0, l: 0, sent: 0 },
   };
 }
 

@@ -354,6 +354,22 @@ export function buildBossRush(Lbase, seed = Date.now()) {
   def.duration = 9999;
   return def;
 }
+// Duel / course : un secteur identique pour tous les pilotes (même graine) — 12 vagues puis un colosse
+export function buildDuel(seed, mode = 'duel') {
+  seed = seed >>> 0 || 1;
+  const rng = new RNG(hash32(seed, 77));
+  const L = 12 + (seed % 48);
+  const def = modeDef(L, mode, mode === 'race' ? 'Course en direct' : 'Duel fantôme', mode === 'race' ? 'LIVE' : 'DUEL');
+  def.endlessSeed = seed; def.duelSeed = seed;
+  def.timeline.push(...endlessChunk(def, 2.5, 0));
+  const t = def.timeline.reduce((m, e) => Math.max(m, e.t), 0) + 5;
+  const arch = rng.pick(BOSS_POOL.filter((a) => a !== 'heart'));
+  def.timeline.push({ t: t - 1.5, kind: 'radio', key: 'boss' });
+  def.timeline.push({ t, kind: 'boss', arch, mini: false, tier: 1, name: ARCH_NAMES[arch] });
+  def.bossMusic = 'boss';
+  def.duration = 9999;
+  return def;
+}
 // Événement de la semaine : un secteur spécial qui change chaque semaine
 export const WEEKLY = [
   { id: 'or', name: 'Pluie d’or', desc: 'Butin ×2 et comètes dorées à volonté.', icon: '🪙' },

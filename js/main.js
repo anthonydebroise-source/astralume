@@ -12,13 +12,15 @@ import { checkAchievements } from './economy/achievements.js';
 import { DIFFS, SHIPS } from './economy/data.js';
 import { SHARD_COLORS } from './game/art.js';
 for (const sh of SHIPS) SHARD_COLORS[sh.id] = sh.color;
-import { buildLevel, buildEndless, buildBossRush, buildWeekly, weekIndex, WEEKLY } from './levels/generator.js';
+import { buildLevel, buildEndless, buildBossRush, buildWeekly, buildDuel, weekIndex, WEEKLY } from './levels/generator.js';
+import { Versus, encodeDuel, decodeDuel } from './net/ghost.js';
 import { dayNumber } from './engine/math.js';
 import { Game } from './game/game.js';
 import { app } from './app.js';
 import { ui, go, show, clearScreens, menuUpdate, menuDraw, initUINotifications } from './ui/ui.js';
 import { pauseMenu, continueMenu, briefingMenu } from './ui/screens-main.js';
 import './ui/screens-meta.js';
+import './ui/screens-versus.js';
 
 // ---------- Démarrage ----------
 load();
@@ -62,7 +64,28 @@ app.startMode = (mode) => {
   app.game = g;
   lastLevel = { mode };
 };
-app.restart = () => { if (lastLevel) { const g = app.game; if (g) g.quit(); if (lastLevel.mode) app.startMode(lastLevel.mode); else app.startLevel(lastLevel.L, lastLevel.diff, {}); } };
+// Multijoueur : duel fantôme (o.ghost = défi reçu) ou course en direct (o.live = liaison au relais)
+app.startDuel = (o = {}) => {
+  ensureAudio(); clearScreens(); resetInput(); clearParticles();
+  const seed = (o.ghost && o.ghost.seed) || o.seed || ((Math.random() * 2147483646) >>> 0) + 1;
+  const def = buildDuel(seed, o.live ? 'race' : 'duel');
+  def.ghost = o.ghost || null;
+  const g = new Game(def, { ship: 'etincelle', drones: [], boosts: {} });
+  g.vs = new Versus({ record: !o.live, ghost: o.ghost, live: o.live });
+  g.onEnd = (res) => endLevel(res);
+  g.onDeath = (game) => setTimeout(() => game.finish(false), 900); // pas de seconde chance en duel
+  g.onPause = () => pauseMenu(g);
+  app.game = g;
+  lastLevel = o.live ? { race: true } : { duel: { seed, ghost: o.ghost || null } };
+};
+app.pseudo = () => { if (!S.pseudo) { S.pseudo = 'Pilote' + (100 + Math.floor(Math.random() * 900)); saveSoon(); } return S.pseudo; };
+app.restart = () => {
+  if (!lastLevel) return;
+  const g = app.game; if (g) g.quit();
+  if (lastLevel.race) { app.game = null; clearParticles(); if (app.live) app.live.close(); go('versus', {}, false); return; }
+  if (lastLevel.duel) app.startDuel(lastLevel.duel);
+  else if (lastLevel.mode) app.startMode(lastLevel.mode); else app.startLevel(lastLevel.L, lastLevel.diff, {});
+};
 app.quitToMenu = () => { if (app.game) app.game.quit(); app.game = null; clearParticles(); go('hub', {}, false); };
 
 function endMode(res) {
@@ -72,7 +95,37 @@ function endMode(res) {
   let chest = null, shardsN = 0, line = '';
   if (!S.modeBest) S.modeBest = {};
   const best = S.modeBest[def.mode] || { score: 0, n: 0 };
-  if (def.mode === 'endless') {
+  let versus = null;
+  if (def.mode === 'duel' || def.mode === 'race') {
+    const score = Math.round(st.score || 0), me = { name: app.pseudo(), score, color: '#38f2ff', me: true };
+    if (!S.duel) S.duel = { w: 0, l: 0, sent: 0 };
+    if (def.mode === 'duel') {
+      const gh = def.ghost;
+      const rec = g.vs && g.vs.rec;
+      const code = rec ? encodeDuel({ seed: def.duelSeed, name: me.name, ship: g.player.id, score, win: victory, xy: rec.xy, sc: rec.sc }) : null;
+      if (gh) {
+        const win = score > gh.score;
+        if (win) { S.duel.w++; bonus.coins = 400; if (score >= 5000) bonus.gems = 2; } else { S.duel.l++; bonus.coins = 120; }
+        line = win ? `VICTOIRE contre ${gh.name} !` : `${gh.name} garde l’avantage…`;
+        versus = { kind: 'duel', win, rows: [me, { name: gh.name, score: gh.score, color: '#ff4fd8' }].sort((a, b) => b.score - a.score), code, rival: gh.name };
+      } else {
+        bonus.coins = 150;
+        line = 'Ton défi est prêt : envoie-le à un ami !';
+        versus = { kind: 'duel', win: null, rows: [me], code, rival: null };
+      }
+    } else {
+      const L = app.live;
+      if (L) L.sendEnd(score, victory);
+      const rows = [me, ...(L ? [...L.peers.values()].map((p, i) => ({ name: p.name, score: p.score || 0, color: ['#ff4fd8', '#ffd23f', '#7dff9a'][i % 3], live: !p.done })) : [])].sort((a, b) => b.score - a.score);
+      const rank = 1 + rows.filter((r) => !r.me && r.score > score).length;
+      const tie = rows.some((r) => !r.me && r.score === score);
+      const win = rows.length > 1 && rank === 1 && !tie;
+      bonus.coins = score < 500 ? 50 : [0, 500, 300, 200, 150][rank] || 100;
+      if (win && score >= 5000) bonus.gems = 3;
+      line = rows.length > 1 ? `Classement : ${rank}${rank === 1 ? 'er' : 'e'}${tie ? ' ex æquo' : ''} sur ${rows.length}` : 'Course terminée';
+      versus = { kind: 'race', win: rows.length > 1 ? win : null, rows, code: null };
+    }
+  } else if (def.mode === 'endless') {
     const w = g.waveN;
     bonus.coins = w * 40; bonus.crystals = Math.floor(w / 3) * 2; bonus.gems = Math.floor(w / 15); shardsN = Math.floor(w / 5) * 2;
     if (w >= 30) chest = 'prism';
@@ -107,7 +160,7 @@ function endMode(res) {
   const xpTo = S.pilot.lvl > lvlFrom ? 1 : S.pilot.xp / xpNeeded(S.pilot.lvl);
   checkAchievements(); save();
   app.game = null; clearParticles();
-  show('results', { victory: def.mode === 'endless' ? true : victory, stars: 0, def, stats: st, got, bonus, first: false, chest, newStarCrystals: 0, shardsN, shardShip: S.ship, score, prevHi, record, rank: null, modeLine: line, xp, lvlFrom, xpFrom, xpTo, levelUps });
+  show('results', { victory: def.mode === 'endless' ? true : victory, stars: 0, def, stats: st, got, bonus, first: false, chest, newStarCrystals: 0, shardsN, shardShip: S.ship, score, prevHi, record, rank: null, modeLine: line, versus, xp, lvlFrom, xpFrom, xpTo, levelUps });
 }
 function endLevel(res) {
   if (res.def.mode) { endMode(res); return; }
@@ -216,7 +269,13 @@ if ('serviceWorker' in navigator && !location.search.includes('nosw')) {
 
 // Lancement
 const boot = document.getElementById('boot');
+// Lien de défi reçu (…#duel=CODE) : on propose directement le duel
+if (location.hash.startsWith('#duel=')) {
+  const code = location.hash.slice(6);
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* ignoré */ }
+  decodeDuel(code).then((d) => { if (d) go('duelInvite', { duel: d }, false); });
+}
 show('title');
 requestAnimationFrame((t) => { last = t; frame(t); });
 setTimeout(() => { if (boot) { boot.classList.add('hide'); setTimeout(() => boot.remove(), 600); } }, 250);
-window.__astralume = { app, S };
+window.__astralume = { app, S, go };

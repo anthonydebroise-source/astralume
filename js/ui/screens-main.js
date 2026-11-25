@@ -18,6 +18,7 @@ import { SHIP_FX } from '../game/ships.js';
 import { ctx, setT, baseT, view } from '../engine/renderer.js';
 import { glow } from '../engine/sprites.js';
 import { iconURL } from '../game/art.js';
+import { versusPanel } from './screens-versus.js';
 import { fmt, TAU } from '../engine/math.js';
 import { sfx } from '../audio/sfx.js';
 import { music } from '../audio/music.js';
@@ -299,7 +300,7 @@ register('modes', {
       widget(cv, (r, t) => art(r, t));
       return h('div', { class: 'mode-card' + (locked ? ' locked' : ''), style: `--c:${col}` },
         cv, h('div', { class: 'mode-body' }, h('b', null, title), h('small', null, sub), h('p', null, desc), rec ? h('div', { class: 'mode-rec' }, rec) : null, extra || null,
-          locked ? h('div', { class: 'muted small' }, `Débloqué au niveau ${req}`) : btn('JOUER', 'primary', () => { sfx.open(); app.startMode(id); })));
+          locked ? h('div', { class: 'muted small' }, `Débloqué au niveau ${req}`) : btn('JOUER', 'primary', () => { sfx.open(); if (id === 'versus') go('versus'); else app.startMode(id); })));
     };
     const warp = (r, t) => {
       const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
@@ -332,10 +333,18 @@ register('modes', {
       ctx.globalCompositeOperation = 'source-over';
       ctx.font = '40px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(ev.icon, cx, cy + Math.sin(t * 2) * 3);
     };
+    const versusArt = (r, t) => {
+      const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+      ctx.globalCompositeOperation = 'lighter';
+      for (const [x, c] of [[cx - 26, '#38f2ff'], [cx + 26, '#ff4fd8']]) { const g = glow(c, 32); ctx.globalAlpha = 0.5 + 0.2 * Math.sin(t * 3 + x); ctx.drawImage(g.c, x - 36, cy - 36, 72, 72); ctx.globalAlpha = 1; ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(x, cy - 16 + Math.sin(t * 2 + x) * 3); ctx.lineTo(x + 11, cy + 12); ctx.lineTo(x, cy + 6); ctx.lineTo(x - 11, cy + 12); ctx.closePath(); ctx.fill(); }
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.font = '900 italic 22px "Avenir Next Condensed",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 4; ctx.strokeStyle = '#1a0630'; ctx.strokeText('VS', cx, cy + 34); ctx.fillStyle = '#ffd23f'; ctx.fillText('VS', cx, cy + 34);
+    };
     const weeklyDone = S.weekly && S.weekly.wk === wk;
     return h('div', null, topbar('Modes de jeu'), h('div', { class: 'scroll' },
       card('weekly', 'ÉVÉNEMENT : ' + ev.name.toUpperCase(), `Se termine dans ${daysLeft} j`, ev.desc, weeklyDone ? '✓ Récompense de la semaine obtenue' : 'Récompense : Coffre Astral + 10 gemmes', 4, weekly, '#ffd23f'),
       card('endless', 'SURVIE INFINIE', 'Vagues sans fin', 'Les vagues ne s’arrêtent jamais et deviennent de plus en plus coriaces. Pas de seconde chance : tiens le plus longtemps possible !', B.endless ? `Record : vague ${B.endless.n} · ${String(B.endless.score).padStart(8, '0')}` : 'Aucun record', 6, warp, '#38f2ff'),
+      card('versus', 'MULTIJOUEUR', 'Duel fantôme · Course en direct', 'Défie tes amis : envoie un duel par message, ou affrontez-vous en direct à 2, 3 ou 4 pilotes.', S.duel && (S.duel.w || S.duel.l) ? `Duels : ${S.duel.w} victoire(s) · ${S.duel.l} défaite(s)` : 'Nouveau !', 3, versusArt, '#ff4fd8'),
       card('rush', 'RUÉE DES COLOSSES', '5 boss à la suite', 'Cinq colosses s’enchaînent, du plus faible au plus terrible. Bats-les tous pour un coffre astral.', B.rush ? `Record : ${B.rush.n} / 5 colosses` : 'Aucun record', 11, rush, '#ff3f6e')));
   },
   enter() { music.play('menu'); },
@@ -418,19 +427,20 @@ register('results', {
       R.rank ? h('div', { class: 'rank rank-' + R.rank }, R.rank) : null);
     R.scoreEl = scoreB;
     el.append(...[
-      h('h1', { class: 'arc-title ' + (win ? 'win' : 'lose') }, R.def.mode === 'endless' ? 'GAME OVER' : win ? 'STAGE CLEAR' : 'GAME OVER'),
+      R.versus && R.versus.win !== null ? h('h1', { class: 'arc-title ' + (R.versus.win ? 'win' : 'lose') }, R.versus.win ? 'VICTOIRE' : 'DÉFAITE') : h('h1', { class: 'arc-title ' + (win ? 'win' : 'lose') }, R.def.mode === 'endless' ? 'GAME OVER' : win ? 'STAGE CLEAR' : 'GAME OVER'),
       h('div', { class: 'center', style: 'font-weight:800;margin-top:-4px' }, R.modeLine || (win ? (R.def.kind === 'boss' ? 'Étoile rallumée !' : 'Secteur nettoyé !') : 'Coque détruite')),
       h('div', { class: 'center muted' }, `Secteur ${R.def.code} · ${R.def.name} · ${DIFFS[R.def.diff].name}`),
       scoreBox,
-      win ? stars : null,
+      R.versus ? versusPanel(R) : null,
+      win && !R.def.mode ? stars : null,
       R.first && win ? h('div', { class: 'newrec' }, 'Premier passage — récompenses doublées !') : null,
       lines,
       R.chest ? h('div', { class: 'panel glow-gold center', style: 'margin-top:8px' }, h('img', { src: iconURL('chest_' + R.chest, 64), style: 'width:44px;vertical-align:middle' }), ' ', h('b', null, 'Coffre gagné ! '), h('span', { class: 'muted' }, 'À ouvrir dans Coffres')) : null,
       h('div', { class: 'panel', style: 'margin-top:8px' }, h('div', { class: 'row' }, h('b', null, `Pilote niv. ${R.lvlFrom}`), h('div', { class: 'spacer' }), h('span', { class: 'muted small' }, `+${R.xp} XP`)), xpb),
       statsLine,
       h('div', { class: 'row', style: 'margin-top:14px' },
-        R.def.mode ? btn('Modes', 'ghost', () => go('modes', {}, false)) : btn('Carte', 'ghost', () => go('world', { w: R.def.w }, false)),
-        btn('Rejouer', '', () => (R.def.mode ? app.startMode(R.def.mode) : app.startLevel(R.def.L, R.def.diff, {}))),
+        R.versus ? btn('Multijoueur', 'ghost', () => go('versus', {}, false)) : R.def.mode ? btn('Modes', 'ghost', () => go('modes', {}, false)) : btn('Carte', 'ghost', () => go('world', { w: R.def.w }, false)),
+        R.versus ? (R.versus.kind === 'duel' ? btn(R.versus.rival ? 'Revanche' : 'Rejouer', '', () => app.restart()) : null) : btn('Rejouer', '', () => (R.def.mode ? app.startMode(R.def.mode) : app.startLevel(R.def.L, R.def.diff, {}))),
         h('div', { class: 'spacer' }),
         win && !R.def.mode && R.def.L < 320 ? btn('Suivant ▸', 'primary', () => { go('hub', {}, false); levelSheet(next); }) : btn('Accueil', 'primary', () => go('hub', {}, false))),
     ].filter(Boolean));

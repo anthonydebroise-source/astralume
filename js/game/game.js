@@ -753,6 +753,7 @@ export class Game {
     if (cam.hitstop > 0) { cam.hitstop -= rawDt; dt *= 0.1; }
     if (this.slowT > 0) { this.slowT -= rawDt; dt *= this.slowK; }
     this.dt = dt; this.t += dt;
+    if (this.vs) this.vs.update(this, dt);
     if (this.state === 'play') this.stats.time += dt;
     if (this.boss) this.bossT += dt;
     // Rythme
@@ -979,6 +980,7 @@ export class Game {
     const sp = this.player.special;
     if (sp && this.player.F.special.draw) { baseT(); this.player.F.special.draw(this, this.player, sp); }
     ctx.globalCompositeOperation = 'source-over';
+    if (this.vs) this.vs.draw(this);
     for (const d of this.drones) d.draw();
     this.player.draw();
     drawParticles(false);
@@ -995,6 +997,7 @@ export class Game {
     // vignette (profondeur cinéma, bords assombris)
     { const vg = sprite('vignette', 64, 96, (gg) => { const gr = gg.createRadialGradient(32, 48, 22, 32, 48, 62); gr.addColorStop(0, 'rgba(0,0,6,0)'); gr.addColorStop(1, 'rgba(0,0,6,0.55)'); gg.fillStyle = gr; gg.fillRect(0, 0, 64, 96); }, 0.3); baseT(); ctx.drawImage(vg.c, 0, 0, view.w, view.h); }
     this.hud.draw();
+    if (this.vs) this.vs.drawHud(this);
     drawFlash();
   }
   drawGlows(ground, k = 1) {
