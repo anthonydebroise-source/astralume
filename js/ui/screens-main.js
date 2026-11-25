@@ -10,6 +10,7 @@ import { levelStars, worldStars, diffUnlocked, powerRating, recommendedPower, xp
 import { calendarIndex, calendarReward, claimDaily, missionsBadge, weekBonus } from '../economy/daily.js';
 import { achBadge } from '../economy/achievements.js';
 import { wheelCost } from '../economy/gacha.js';
+import { seasonInfo, seasonReward, claimSeason, RANKS } from '../economy/season.js';
 import { WORLDS } from '../levels/worlds.js';
 import { levelInfo, KIND_NAMES, TRAITS, CHALLENGES, WEEKLY, weekIndex } from '../levels/generator.js';
 import { dayNumber } from '../engine/math.js';
@@ -67,6 +68,15 @@ register('hub', {
     const pilot = h('div', { class: 'pilot' }, h('div', { class: 'lvl' }, h('b', null, S.pilot.lvl), h('small', null, 'PILOTE')),
       h('div', { style: 'width:70px' }, h('div', { class: 'bar' }, h('i', { style: `width:${Math.round(xpk * 100)}%` }))));
     const top = h('div', { class: 'topbar' }, pilot, curBar(['coins', 'crystals', 'gems']), iconBtn(SVG.gear, () => go('settings'), 'Réglages'));
+    const badge = (n) => (n > 0 ? h('div', { class: 'badge' }, n > 9 ? '9+' : n) : null);
+    // --- barre de saison ---
+    const se = seasonInfo();
+    const seasonBar = h('button', { class: 'seasonbar', onclick: () => { sfx.ui(); seasonPopup(); } },
+      h('div', { class: 'se-rank' }, h('small', null, 'RANG'), h('b', null, se.rank)),
+      h('div', { class: 'se-mid' }, h('div', { class: 'se-t' }, h('b', null, `SAISON ${se.n}`), ` · ${se.name}`, h('span', null, `${se.daysLeft} j`)),
+        h('div', { class: 'se-bar' }, h('i', { style: `width:${Math.round((se.inRank / se.need) * 100)}%` }), h('em', null, se.rank >= 30 ? 'MAX' : `${se.inRank} / ${se.need}`))),
+      h('div', { class: 'se-gift', html: SVG.gift }, badge(se.claimable)));
+    // --- héros : vaisseau, monde, JOUER ---
     const hero = h('div', { class: 'hero' });
     const planet = h('div', { style: 'position:absolute;left:0;right:0;top:0;bottom:40%;pointer-events:none' });
     widget(planet, (r, t) => drawHangar(r, t, S.ship, W));
@@ -75,29 +85,62 @@ register('hub', {
       h('b', { style: `color:${SD.color}` }, SD.name), h('span', { class: 'pw' }, h('i', { html: SVG.bolt || '⚡' }), 'Puissance ', h('strong', null, fmt(powerRating()))));
     const L = Math.min(320, S.maxLevel);
     const info = levelInfo(L);
-    hero.append(planet, showcase,
+    const wk = weekIndex(dayNumber()), ev = WEEKLY[wk % WEEKLY.length];
+    const wc = wheelCost();
+    const side = (ic, label, col, fn, n, emoji) => h('button', { class: 'sidebtn', style: `--c:${col}`, onclick: () => { sfx.ui(); fn(); } },
+      h('span', { class: 'sb', html: emoji ? `<span class="emo">${emoji}</span>` : SVG[ic] }, badge(n)), h('small', null, label));
+    const left = h('div', { class: 'sidecol l' },
+      side('gift', 'Cadeau', '#ffd23f', () => (S.daily.pending ? dailyPopup() : go('missions')), S.daily.pending ? 1 : 0),
+      side('wheel', 'Roue', '#ff4fd8', () => go('wheel'), wc === null ? 1 : 0),
+      side('chest', 'Coffres', '#38f2ff', () => go('chests'), (S.freeChests || []).length));
+    const right = h('div', { class: 'sidecol r' },
+      side('star', 'Événement', '#ffb43a', () => go('modes'), S.weekly && S.weekly.wk === wk ? 0 : 1, ev.icon),
+      side('map', 'Carte', '#7dff9a', () => go('map'), starRewardsAvailable()),
+      side('trophy', 'Trophées', '#c9a0ff', () => go('trophies'), 0));
+    hero.append(planet, left, right, showcase,
       h('div', { class: 'wname' }, `Monde ${W.w + 1} · ${info.code}`),
       h('div', { class: 'wtitle', style: `color:${W.pal.neb2}` }, W.name),
-      btn(SVG.play.replace('<svg', '<svg style="width:22px;height:22px"') + ` JOUER ${info.code}`, 'primary big pulse', () => levelSheet(L)),
-      h('div', { class: 'row', style: 'gap:8px;margin-top:10px;justify-content:center' },
-        h('button', { class: 'btn ghost small', onclick: () => { sfx.ui(); go('map'); } }, h('span', { html: SVG.map, style: 'width:16px;display:inline-flex' }), 'Carte', starRewardsAvailable() ? h('span', { class: 'badge', style: 'position:static;margin-left:4px' }, '★') : null),
-        h('button', { class: 'btn ghost small', onclick: () => { sfx.ui(); go('modes'); } }, '🎮 Modes'),
-        h('button', { class: 'btn ghost small', onclick: () => { sfx.ui(); go('trophies'); } }, '🏆 Trophées')));
-    const badge = (n) => (n > 0 ? h('div', { class: 'badge' }, n) : null);
-    const wc = wheelCost();
-    const big = [
-      ['ship', 'Hangar', 'Vaisseaux · Drones · Améliorations', '#ff4fd8', () => go('hangar'), 0],
-      ['chest', 'Trésors', 'Coffres · Roue de la fortune', '#ffd23f', () => go('chests'), (S.freeChests || []).length + (wc === null ? 1 : 0)],
-      ['target', 'Quêtes', 'Cadeau · Missions · Succès', '#47ffa3', () => go('missions'), missionsBadge() + (S.daily.pending ? 1 : 0) + achBadge() + starRewardsAvailable()],
-    ].map(([ic, label, sub, col, fn, n]) => h('button', { class: 'bigtile', style: `--c:${col}`, onclick: () => { sfx.ui(); fn(); } }, h('span', { class: 'bi', html: SVG[ic] }), h('b', null, label), h('small', null, sub), badge(n)));
-    const el = h('div', null, top, hero, h('div', { class: 'bigtiles' }, big), ticker());
-    return el;
+      btn(SVG.play.replace('<svg', '<svg style="width:22px;height:22px"') + ` JOUER ${info.code}`, 'primary big pulse', () => levelSheet(L)));
+    // --- barre de navigation basse ---
+    const nav = (ic, label, col, fn, n, main) => h('button', { class: 'navb' + (main ? ' main' : ''), style: `--c:${col}`, onclick: () => { sfx.ui(); fn(); } },
+      h('span', { class: 'ni', html: SVG[ic] }), h('small', null, label), badge(n));
+    const navbar = h('div', { class: 'navbar' },
+      nav('chest', 'Trésors', '#ffd23f', () => go('chests'), (S.freeChests || []).length + (wc === null ? 1 : 0)),
+      nav('target', 'Quêtes', '#47ffa3', () => go('missions'), missionsBadge() + achBadge()),
+      nav('ship', 'Hangar', '#ff4fd8', () => go('hangar'), 0, true),
+      nav('bolt', 'Duel', '#38f2ff', () => go('versus'), 0),
+      nav('play', 'Modes', '#ffb43a', () => go('modes'), 0));
+    return h('div', { class: 'hubscr' }, top, seasonBar, hero, ticker(), navbar);
   },
   enter() {
     music.play('menu');
     if (S.daily.pending) setTimeout(() => { if (ui.current === 'hub' && S.daily.pending) dailyPopup(); }, 450);
   },
 });
+
+// ================= SAISON =================
+export function seasonPopup() {
+  const se = seasonInfo();
+  const track = h('div', { class: 'se-track' });
+  for (let r = 1; r <= RANKS; r++) {
+    const b = seasonReward(r), e = bundleEntries(b)[0];
+    const icon = e.type === 'cur' ? iconURL(e.id, 64) : e.type === 'chest' ? iconURL('chest_' + e.id, 64) : iconURL('nova', 64);
+    const st = r <= se.claimed ? ' got' : r <= se.rank ? ' ready' : '';
+    track.append(h('div', { class: 'se-cell' + st + (r % 5 === 0 ? ' big' : '') }, h('div', { class: 'dn' }, 'RANG ' + r), h('img', { src: icon }), h('div', { class: 'amt' }, e.type === 'chest' ? 'Coffre' : fmt(e.n)), r <= se.claimed ? h('div', { class: 'ok' }, '✓') : null));
+  }
+  let m;
+  const claim = btn(se.claimable ? `Récupérer (${se.claimable})` : 'Joue pour monter', 'gold big wide' + (se.claimable ? '' : ' off'), () => {
+    const b = claimSeason();
+    if (!b) return;
+    flyRewards(claim, b); sfx.levelUp(); m.close();
+    rewardPopup('Récompenses de saison', b, () => refresh(), `Rang ${se.rank} atteint`);
+  });
+  m = modal([h('h2', { class: 'pink-t' }, `Saison ${se.n} · ${se.name}`),
+    h('p', { class: 'center muted' }, `Rang ${se.rank} / ${RANKS} · encore ${se.daysLeft} jour(s). Chaque partie rapporte des points de saison (aliens, victoires, colosses, score).`),
+    h('div', { class: 'se-bar big' }, h('i', { style: `width:${Math.round((se.inRank / se.need) * 100)}%` }), h('em', null, se.rank >= RANKS ? 'MAX' : `${se.inRank} / ${se.need} pts`)),
+    track, h('div', { style: 'height:10px' }), claim]);
+  setTimeout(() => { const c = track.querySelector('.ready, .se-cell:not(.got)'); if (c) track.scrollLeft = c.offsetLeft - 20; }, 30);
+}
 
 // ================= CADEAU DU JOUR =================
 export function dailyPopup() {
@@ -419,7 +462,7 @@ register('results', {
       R.anims.push({ el: v.querySelector('b'), n: R.shardsN });
     }
     const xpb = h('div', { class: 'bar' }, h('i', { style: `width:${Math.round(R.xpFrom * 100)}%` }));
-    const statsLine = h('div', { class: 'muted small center', style: 'margin-top:8px' }, `${R.stats.kills} aliens · chaîne max ${R.stats.maxChain} · ${R.stats.constellations} constellation(s)` + (R.stats.perfects ? ` · ${R.stats.perfects} PARFAIT` : ''));
+    const statsLine = h('div', { class: 'muted small center', style: 'margin-top:8px' }, `${R.stats.kills} aliens · chaîne max ${R.stats.maxChain} · ${R.stats.constellations} constellation(s)` + (R.stats.perfects ? ` · ${R.stats.perfects} PARFAIT` : '') + (R.seasonPts ? ` · +${R.seasonPts} pts de saison` : ''));
     const next = Math.min(320, R.def.L + 1);
     const scoreB = h('b', null, '00000000');
     const scoreBox = h('div', { class: 'arc-score' }, h('div', { class: 'arc-lab' }, 'SCORE'), scoreB,

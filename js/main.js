@@ -9,6 +9,7 @@ import { load, S, save, saveSoon } from './economy/save.js';
 import { give, grant, addXP, recordLevel, xpNeeded } from './economy/economy.js';
 import { checkDaily, track } from './economy/daily.js';
 import { checkAchievements } from './economy/achievements.js';
+import { seasonGain } from './economy/season.js';
 import { DIFFS, SHIPS } from './economy/data.js';
 import { SHARD_COLORS } from './game/art.js';
 for (const sh of SHIPS) SHARD_COLORS[sh.id] = sh.color;
@@ -154,13 +155,14 @@ function endMode(res) {
   if (shardsN) total.shards = { [S.ship]: shardsN };
   grant(total);
   track('kills', st.kills); track('coins', got.coins);
+  const seasonPts = seasonGain({ kills: st.kills, victory, score: st.score, boss: def.mode === 'rush' && g.rushKills > 0 });
   const xp = Math.round(20 + st.kills * 0.4);
   const lvlFrom = S.pilot.lvl, xpFrom = S.pilot.xp / xpNeeded(S.pilot.lvl);
   const levelUps = addXP(xp);
   const xpTo = S.pilot.lvl > lvlFrom ? 1 : S.pilot.xp / xpNeeded(S.pilot.lvl);
   checkAchievements(); save();
   app.game = null; clearParticles();
-  show('results', { victory: def.mode === 'endless' ? true : victory, stars: 0, def, stats: st, got, bonus, first: false, chest, newStarCrystals: 0, shardsN, shardShip: S.ship, score, prevHi, record, rank: null, modeLine: line, versus, xp, lvlFrom, xpFrom, xpTo, levelUps });
+  show('results', { victory: def.mode === 'endless' ? true : victory, stars: 0, def, stats: st, got, bonus, first: false, chest, newStarCrystals: 0, shardsN, shardShip: S.ship, score, prevHi, record, rank: null, modeLine: line, versus, seasonPts, xp, lvlFrom, xpFrom, xpTo, levelUps });
 }
 function endLevel(res) {
   if (res.def.mode) { endMode(res); return; }
@@ -210,6 +212,7 @@ function endLevel(res) {
   const rank = victory ? (res.stars >= 3 && st.hullHits === 0 ? 'S' : res.stars >= 3 ? 'A' : res.stars >= 2 ? 'B' : 'C') : null;
   // 3) Statistiques, missions, succès
   track('kills', st.kills); track('coins', got.coins); track('crystals', got.crystals); track('gems', got.gems); track('parts', got.parts);
+  const seasonPts = seasonGain({ kills: st.kills, victory, score: st.score, boss: victory && def.kind === 'boss' });
   track('specials', st.specials); track('perfects', st.perfects); track('constel', st.constellations);
   track('salvage', st.salvage); track('novas', st.novas); track('elites', st.elites);
   S.stats.time += Math.round(st.time);
@@ -230,7 +233,7 @@ function endLevel(res) {
   save();
   app.game = null;
   clearParticles();
-  show('results', { victory, stars: res.stars, def, stats: st, got, bonus, first, chest, newStarCrystals, shardsN, shardShip: S.ship, score, prevHi, record, rank, xp, lvlFrom, xpFrom, xpTo, levelUps });
+  show('results', { victory, stars: res.stars, def, stats: st, got, bonus, first, chest, newStarCrystals, shardsN, shardShip: S.ship, score, prevHi, record, rank, seasonPts, xp, lvlFrom, xpFrom, xpTo, levelUps });
 }
 
 // ---------- Boucle ----------

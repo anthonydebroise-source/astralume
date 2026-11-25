@@ -1,5 +1,5 @@
 // Service worker : met tout le jeu en cache pour jouer hors ligne
-const VERSION = 'astralume-202611251540';
+const VERSION = 'astralume-202611251545';
 const ASSETS = [
   "./",
   "css/style.css",
@@ -18,6 +18,7 @@ const ASSETS = [
   "js/economy/economy.js",
   "js/economy/gacha.js",
   "js/economy/save.js",
+  "js/economy/season.js",
   "js/engine/input.js",
   "js/engine/math.js",
   "js/engine/noise.js",
