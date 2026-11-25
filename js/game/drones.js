@@ -6,6 +6,7 @@ import { glow } from '../engine/sprites.js';
 import { polyPath } from './art.js';
 import { DRONE_BY_ID } from '../economy/data.js';
 import { Sculptor } from '../engine/sculpt.js';
+import { drawDroneSculpt } from './droneart.js';
 
 // ---------- Drones sculptés (petits chasseurs d'escorte) ----------
 const half = (pts) => (g) => { g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]); for (let i = pts.length - 2; i >= 0; i -= 2) g.lineTo(-pts[i], pts[i + 1]); g.closePath(); };
@@ -98,7 +99,7 @@ const DRAW = {
   lumen(c, t, col) { const p = 1 + 0.15 * Math.sin(t * 6); c.beginPath(); c.arc(0, 0, 6 * p, 0, TAU); c.fillStyle = '#fffde0'; c.fill(); c.strokeStyle = col; c.lineWidth = 2; for (let i = 0; i < 4; i++) { const a = t * 2 + i * 1.57; c.beginPath(); c.moveTo(Math.cos(a) * 8, Math.sin(a) * 8); c.lineTo(Math.cos(a) * 12, Math.sin(a) * 12); c.stroke(); } },
   prisme(c, t, col) { c.save(); c.rotate(t); c.beginPath(); c.moveTo(0, -9); c.lineTo(8, 5); c.lineTo(-8, 5); c.closePath(); c.fillStyle = rgba(col, 0.7); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 1.2; c.stroke(); c.restore(); },
 };
-export function drawDroneIcon(c, id, t) { drawDroneArt(c, id, t, 1.1); }
+export function drawDroneIcon(c, id, t) { drawDroneSculpt(c, id, DRONE_BY_ID[id].color, t, 0.72); }
 
 export class Drone {
   constructor(g, id, slot, power) {
@@ -120,7 +121,7 @@ export class Drone {
         this.cd -= dt;
         if (this.cd <= 0 && !g.def.noWeapons) {
           const t = g.nearestTarget(this.x, this.y, 420);
-          if (t) { this.cd = 0.38; const a = angTo(this.x, this.y, t.x, t.y); g.addPB(this.x, this.y, Math.cos(a) * 640, Math.sin(a) * 640, 2.6 * this.P * p.dmgMul0, 'spark', { color: this.col, homing: 3 }); }
+          if (t) { this.cd = 0.38; const a = angTo(this.x, this.y, t.x, t.y); this.aim = a; g.addPB(this.x, this.y, Math.cos(a) * 640, Math.sin(a) * 640, 2.6 * this.P * p.dmgMul0, 'spark', { color: this.col, homing: 3 }); }
         }
         break;
       }
@@ -199,22 +200,13 @@ export class Drone {
     }
     const s = glow(this.col, 16);
     ctx.globalCompositeOperation = 'lighter'; baseT();
-    ctx.globalAlpha = 0.55; ctx.drawImage(s.c, this.x - 22, this.y - 22, 44, 44);
-    // réacteur
-    if (this.id !== 'egide' && this.id !== 'lumen') {
-      const f = 0.8 + 0.2 * Math.sin(this.t * 40), L = 12 * f;
-      const gr = ctx.createLinearGradient(0, this.y + 8, 0, this.y + 8 + L);
-      gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.3, rgba(this.col, 0.8)); gr.addColorStop(1, rgba(this.col, 0));
-      ctx.fillStyle = gr; ctx.globalAlpha = 1;
-      ctx.beginPath(); ctx.ellipse(this.x, this.y + 8 + L * 0.45, 2.4, L * 0.55, 0, 0, TAU); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = 0.4; ctx.drawImage(s.c, this.x - 24, this.y - 24, 48, 48); ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     setT(this.x, this.y);
-    if (this.id === 'echo') ctx.globalAlpha = 0.75;
-    drawDroneArt(ctx, this.id, this.t, 1.25);
+    this.aimS = this.aimS === undefined ? -Math.PI / 2 : this.aimS + Math.atan2(Math.sin((this.aim ?? -Math.PI / 2) - this.aimS), Math.cos((this.aim ?? -Math.PI / 2) - this.aimS)) * 0.25;
+    drawDroneSculpt(ctx, this.id, this.col, this.t, 1, this.aimS, this.id === 'echo');
     ctx.globalAlpha = 1;
-    if (this.id === 'egide') { for (let i = 0; i < this.charges; i++) { ctx.fillStyle = this.col; ctx.beginPath(); ctx.arc(-6 + i * 4, 15, 1.5, 0, TAU); ctx.fill(); } }
+    if (this.id === 'egide') { for (let i = 0; i < this.charges; i++) { ctx.fillStyle = this.col; ctx.beginPath(); ctx.arc(-6 + i * 4, 21, 1.5, 0, TAU); ctx.fill(); } }
     baseT();
   }
 }

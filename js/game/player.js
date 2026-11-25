@@ -23,7 +23,7 @@ export class Player {
     this.F = SHIP_FX[this.id];
     this.col = this.meta.color; this.col2 = this.meta.color2;
     const st = shipStats(this.id);
-    this.dmgMul0 = st.dmg; this.rateMul0 = st.rate; this.specMul = st.spec; this.chargeMul = st.charge; this.aw = st.aw; this.ev = st.ev || 0; this.escT = 0;
+    this.dmgMul0 = st.dmg; this.rateMul0 = st.rate; this.specMul = st.spec; this.chargeMul = st.charge; this.aw = st.aw; this.ev = st.ev || 0; this.escT = 0; this.aura = st.aura; this.auraT = 3;
     this.crit = S.up.crit * 0.03;
     this.maxHp = g.def.glass ? 1 : 3 + S.up.hull;
     this.hp = this.maxHp;
@@ -46,6 +46,19 @@ export class Player {
     this.entering = 1.1;
     this.anchorX = 0; this.anchorY = 0;
     this.readyPlayed = false;
+  }
+  // Changement de vaisseau en vol (capsule de renfort) : garde le niveau d'arme
+  switchShip(id) {
+    if (!SHIP_BY_ID[id]) return;
+    if (this.id === 'lance') sfx.laser(false);
+    this.id = id; this.meta = SHIP_BY_ID[id]; this.F = SHIP_FX[id];
+    this.col = this.meta.color; this.col2 = this.meta.color2;
+    const st = shipStats(id);
+    this.dmgMul0 = st.dmg; this.rateMul0 = st.rate; this.specMul = st.spec; this.chargeMul = st.charge; this.aw = st.aw; this.ev = st.ev || 0; this.aura = st.aura; this.auraT = 2;
+    this.beams.length = 0; this.blades.length = 0; this.special = null;
+    this.phoenix = id === 'phenix' ? 1 : 0;
+    this.wcd = 0.15; this.inv = Math.max(this.inv, 1.2);
+    this.vol.col = this.col;
   }
   get dmgMul() { return this.dmgMul0 * (this.super > 0 ? 1.8 : 1); }
   get rateMul() { return this.rateMul0 * (this.super > 0 ? 1.35 : 1); }
@@ -116,6 +129,17 @@ export class Player {
   fire(dt) {
     const g = this.g, W = this.F.weapon;
     const lvl = this.effLvl();
+    // Peinture « Aura de foudre » : décharge périodique autour du vaisseau
+    if (this.aura) {
+      this.auraT -= dt;
+      if (this.auraT <= 0) {
+        this.auraT = 5;
+        const n = g.cancelBullets({ x: this.x, y: this.y, r: 85 }, true);
+        g.forTargets((t) => { if (!t.shielded && (t.x - this.x) ** 2 + (t.y - this.y) ** 2 < 110 * 110) { g.hitTarget(t, 14 * this.dmgMul, t.x, t.y, true); g.lineFx(this.x, this.y, t.x, t.y, '#bfe8ff', 0.25, 2); } });
+        fx.ring(this.x, this.y, 10, 95, 0.35, '#bfe8ff', 3); fx.ring(this.x, this.y, 6, 70, 0.25, this.col, 2);
+        if (n) sfx.zap();
+      }
+    }
     // Évolution ★3 : salve d'escorte (deux traits à tête chercheuse depuis les canons d'aile)
     if (this.ev >= 3 && !g.def.noWeapons) {
       this.escT -= dt * this.rateMul;

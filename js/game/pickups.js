@@ -3,6 +3,32 @@ import { TAU, rand, dist2, angTo, rgba } from '../engine/math.js';
 import { view, ctx, setT, setRTS, baseT } from '../engine/renderer.js';
 import { sprite, glow } from '../engine/sprites.js';
 import { ICONS, drawCoin, drawNovaStar } from './art.js';
+import { Sculptor } from '../engine/sculpt.js';
+import { drawHypercar } from './hypercar.js';
+import { drawDroneSculpt } from './droneart.js';
+import { SHIP_BY_ID, DRONE_BY_ID } from '../economy/data.js';
+
+// Capsule de verre à embouts chromés (contient un vaisseau ou un drone)
+const capCache = new Map();
+function capsule(px, col) {
+  px = Math.max(2, Math.min(10, Math.ceil(px)));
+  const k = px + col;
+  let c = capCache.get(k);
+  if (c) return c;
+  const S = new Sculptor(40, 56, px, { ox: 20, oy: 28, depth: 10, bevel: 0.5, rim: col, outline: 0, ao: 0.4 });
+  const pill = (g) => { g.moveTo(-13, -14); g.arc(0, -14, 13, Math.PI, 0); g.lineTo(13, 14); g.arc(0, 14, 13, 0, Math.PI); g.closePath(); };
+  S.paint(pill, { c: 'rgba(170,220,255,0.22)', mat: 'glass', h: (q) => q.hCyl(-13, 0, 13, 0, 0.8, 0.2) });
+  S.stroke(pill, { c: 'rgba(200,235,255,0.6)', mat: 'chrome', w: 0.9, h: 0.1 });
+  for (const y of [-22, 22]) {
+    S.paint((g) => g.ellipse(0, y, 13.5, 6, 0, 0, Math.PI * 2), { c: '#c3cad8', mat: 'chrome', h: (q) => q.hDomeE(0, y, 13.5, 6, 0.95, 0.5) });
+    S.stroke((g) => g.ellipse(0, y, 10, 3.6, 0, 0, Math.PI * 2), { c: '#ecb44e', mat: 'gold', w: 1, h: 0.05 });
+  }
+  S.light((g) => { g.rect(-13.5, -17.5, 27, 1.2); g.rect(-13.5, 16.3, 27, 1.2); }, col, 2);
+  S.light((g) => g.ellipse(-7, -4, 2, 9, 0.1, 0, Math.PI * 2), 'rgba(255,255,255,0.35)', 1);
+  c = S.bake();
+  capCache.set(k, c);
+  return c;
+}
 
 export const PK = {
   coin: { r: 6, glow: '#ffcf3f' },
@@ -15,7 +41,10 @@ export const PK = {
   energy: { r: 14, glow: '#ffe94a' },
   heart: { r: 14, glow: '#ff4f8a' },
   nova: { r: 18, glow: '#ffffff' },
+  shipcap: { r: 22, glow: '#ffffff' },
+  dronecap: { r: 20, glow: '#38f2ff' },
 };
+const CAP = { shipcap: 1, dronecap: 1 };
 
 function coinSprite(tier) {
   const r = [9.5, 11.5, 13.5][tier];
@@ -43,7 +72,8 @@ export function updatePickups(g, dt) {
     if (p.alive && !k.attract) {
       const d2 = dist2(k.x, k.y, p.x, p.y);
       const r = PK[k.kind].r > 9 ? mag * 0.75 : mag;
-      if (d2 < r * r || (global && k.kind !== 'nova' && k.age > 0.25) || (k.age > 2.5 && k.kind !== 'nova')) k.attract = true;
+      if (CAP[k.kind]) { if (d2 < 70 * 70) k.attract = true; }
+      else if (d2 < r * r || (global && k.kind !== 'nova' && k.age > 0.25) || (k.age > 2.5 && k.kind !== 'nova')) k.attract = true;
     }
     if (k.attract && p.alive) {
       const a = angTo(k.x, k.y, p.x, p.y);
@@ -51,6 +81,9 @@ export function updatePickups(g, dt) {
       k.vx += (Math.cos(a) * sp - k.vx) * Math.min(1, dt * 10);
       k.vy += (Math.sin(a) * sp - k.vy) * Math.min(1, dt * 10);
       k.age += dt;
+    } else if (CAP[k.kind]) {
+      // les capsules descendent lentement en ondulant : il faut aller les chercher
+      k.vx = Math.cos(k.t * 1.3) * 38; k.vy = 42;
     } else {
       k.vx *= 1 - dt * 2.5;
       k.vy += (55 - k.vy) * Math.min(1, dt * 2);
@@ -69,6 +102,7 @@ export function drawPickups(g) {
   for (const k of g.pickups) {
     const P = PK[k.kind];
     const s = glow(P.glow, 16);
+    if (CAP[k.kind]) continue;
     const r = (k.kind === 'coin' ? 13 + k.tier * 4 : P.r * 1.9) * (1 + 0.15 * Math.sin(k.t * 6));
     ctx.globalAlpha = k.kind === 'coin' ? 0.55 : 0.7;
     ctx.drawImage(s.c, k.x - r, k.y - r, r * 2, r * 2);
@@ -81,6 +115,27 @@ export function drawPickups(g) {
       const sx = Math.max(0.18, Math.abs(Math.cos(k.t * 5)));
       setRTS(k.x, k.y, 0, sx, 1);
       ctx.drawImage(s.c, -s.hw, -s.hh, s.w, s.h);
+    } else if (CAP[k.kind]) {
+      const ship = k.kind === 'shipcap', col = ship ? SHIP_BY_ID[k.id].color : DRONE_BY_ID[k.id].color;
+      const bob = Math.sin(k.t * 3) * 2, sc = 1 + 0.06 * Math.sin(k.t * 6);
+      setT(k.x, k.y + bob, sc);
+      ctx.globalCompositeOperation = 'lighter';
+      const gl = glow(col, 16); ctx.globalAlpha = 0.7; ctx.drawImage(gl.c, -30, -36, 60, 72); ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.save(); ctx.rotate(Math.sin(k.t * 2) * 0.15);
+      if (ship) { ctx.save(); ctx.scale(0.5, 0.5); drawHypercar(ctx, k.id, k.t, 0); ctx.restore(); }
+      else drawDroneSculpt(ctx, k.id, col, k.t, 0.55);
+      ctx.restore();
+      const cs = capsule((ctx.getTransform().a || 2), col);
+      ctx.drawImage(cs.cv, -cs.ox, -cs.oy, cs.w, cs.h);
+      // anneau tournant + étiquette clignotante
+      ctx.strokeStyle = rgba(col, 0.75); ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(0, 0, 33, k.t * 3, k.t * 3 + 1.6); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, 33, k.t * 3 + Math.PI, k.t * 3 + Math.PI + 1.6); ctx.stroke();
+      if (Math.sin(k.t * 8) > -0.3) {
+        ctx.font = '900 10px "Avenir Next Condensed","Arial Narrow",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(4,2,16,0.9)'; const lb = ship ? 'VAISSEAU' : 'DRONE';
+        ctx.strokeText(lb, 0, -40); ctx.fillStyle = '#ffffff'; ctx.fillText(lb, 0, -40);
+      }
     } else if (k.kind === 'nova') {
       setT(k.x, k.y);
       ctx.rotate(k.t);

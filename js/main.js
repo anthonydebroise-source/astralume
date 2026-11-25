@@ -40,9 +40,8 @@ app.startLevel = (L, diff, boosts = {}) => {
   resetInput();
   clearParticles();
   const def = buildLevel(L, diff);
-  const drones = [];
-  for (let i = 0; i < 2; i++) if (S.slots[i] && S.drones[S.slots[i]]) drones.push(S.slots[i]);
-  const g = new Game(def, { ship: S.ship, drones, boosts });
+  // On décolle toujours avec Étincelle et sans drone : les autres arrivent en capsules
+  const g = new Game(def, { ship: 'etincelle', drones: [], boosts });
   g.onEnd = (res) => endLevel(res);
   g.onDeath = (game) => continueMenu(game);
   g.onPause = () => pauseMenu(g);

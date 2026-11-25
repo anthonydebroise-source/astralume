@@ -5,27 +5,27 @@ import { Sculptor } from '../engine/sculpt.js';
 
 export const SFW = 64, SFH = 72, SOX = 32, SOY = 35; // cadre : x ∈ [-32, 32], y ∈ [-35, 37]
 
-const half = (pts) => (g) => { g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]); for (let i = pts.length - 2; i >= 0; i -= 2) g.lineTo(-pts[i], pts[i + 1]); g.closePath(); };
-const sides = (pts, only) => (g) => { for (const s of only ? [only] : [1, -1]) { g.moveTo(pts[0] * s, pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i] * s, pts[i + 1]); g.closePath(); } };
-const circ = (x, y, r) => (g) => g.arc(x, y, r, 0, TAU);
-const both = (x, y, r) => (g) => { g.moveTo(x + r, y); g.arc(x, y, r, 0, TAU); g.moveTo(-x + r, y); g.arc(-x, y, r, 0, TAU); };
-const hgrad = (col, w) => (g) => { const gr = g.createLinearGradient(-w, 0, w, 0); gr.addColorStop(0, darken(col, 0.45)); gr.addColorStop(0.3, col); gr.addColorStop(0.5, lighten(col, 0.25)); gr.addColorStop(0.7, col); gr.addColorStop(1, darken(col, 0.45)); return gr; };
-const vg = (y0, y1, a, b) => (g) => { const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, a); gr.addColorStop(1, b); return gr; };
-const CARBON = '#1c1e28', STEEL = '#c3cad8', GOLD = '#ecb44e';
+export const half = (pts) => (g) => { g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]); for (let i = pts.length - 2; i >= 0; i -= 2) g.lineTo(-pts[i], pts[i + 1]); g.closePath(); };
+export const sides = (pts, only) => (g) => { for (const s of only ? [only] : [1, -1]) { g.moveTo(pts[0] * s, pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i] * s, pts[i + 1]); g.closePath(); } };
+export const circ = (x, y, r) => (g) => g.arc(x, y, r, 0, TAU);
+export const both = (x, y, r) => (g) => { g.moveTo(x + r, y); g.arc(x, y, r, 0, TAU); g.moveTo(-x + r, y); g.arc(-x, y, r, 0, TAU); };
+export const hgrad = (col, w) => (g) => { const gr = g.createLinearGradient(-w, 0, w, 0); gr.addColorStop(0, darken(col, 0.45)); gr.addColorStop(0.3, col); gr.addColorStop(0.5, lighten(col, 0.25)); gr.addColorStop(0.7, col); gr.addColorStop(1, darken(col, 0.45)); return gr; };
+export const vg = (y0, y1, a, b) => (g) => { const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, a); gr.addColorStop(1, b); return gr; };
+export const CARBON = '#1c1e28', STEEL = '#c3cad8', GOLD = '#ecb44e';
 
 // ---------- éléments communs ----------
-function hullPaint(S, pts, col, w, hc = 0.85, he = 0.3) { S.paint(half(pts), { c: hgrad(col, w), mat: 'gloss', h: (s) => s.hCyl(-w, 0, w, 0, hc, he) }); }
-function wingPaint(S, pts, col, x0, x1, h0 = 0.5, h1 = 0.18, mat = 'gloss', c) { for (const k of [1, -1]) S.paint(sides(pts, k), { c: c || vg(-20, 26, lighten(col, 0.12), darken(col, 0.35)), mat, h: (s) => s.hLin(x0 * k, 0, x1 * k, 0, h0, h1) }); }
-function carbon(S, path, h = 0.04, hm = 'add') { S.paint(path, { c: CARBON, mat: 'rubber', h, hm, bump: 0.25 }); }
-function trim(S, path, col = GOLD, w = 0.8, mat = 'gold') { S.stroke(path, { c: col, mat, w, h: 0.03 }); }
-function canopy(S, x, y, w, h, tint) {
+export function hullPaint(S, pts, col, w, hc = 0.85, he = 0.3) { S.paint(half(pts), { c: hgrad(col, w), mat: 'gloss', h: (s) => s.hCyl(-w, 0, w, 0, hc, he) }); }
+export function wingPaint(S, pts, col, x0, x1, h0 = 0.5, h1 = 0.18, mat = 'gloss', c) { for (const k of [1, -1]) S.paint(sides(pts, k), { c: c || vg(-20, 26, lighten(col, 0.12), darken(col, 0.35)), mat, h: (s) => s.hLin(x0 * k, 0, x1 * k, 0, h0, h1) }); }
+export function carbon(S, path, h = 0.04, hm = 'add') { S.paint(path, { c: CARBON, mat: 'rubber', h, hm, bump: 0.25 }); }
+export function trim(S, path, col = GOLD, w = 0.8, mat = 'gold') { S.stroke(path, { c: col, mat, w, h: 0.03 }); }
+export function canopy(S, x, y, w, h, tint) {
   const p = (g) => { g.moveTo(x, y - h); g.bezierCurveTo(x + w, y - h * 0.55, x + w, y + h * 0.6, x, y + h); g.bezierCurveTo(x - w, y + h * 0.6, x - w, y - h * 0.55, x, y - h); g.closePath(); };
   S.paint(p, { c: vg(y - h, y + h, lighten(tint, 0.35), '#06070e'), mat: 'glass', h: (s) => s.hDomeE(x, y - h * 0.15, w * 1.05, h * 1.05, 0.95, 0.55) });
   S.stroke(p, { c: STEEL, mat: 'chrome', w: 0.7, h: 0.04 });
   S.light((g) => g.ellipse(x - w * 0.25, y - h * 0.45, w * 0.18, h * 0.22, -0.3, 0, TAU), rgba('#ffffff', 0.55), 0.4);
 }
 // cœur d'énergie : gemme facettée et lumineuse dans un sertissage chromé
-function core(S, x, y, r, col, n = 6) {
+export function core(S, x, y, r, col, n = 6) {
   const gem = (R, a0 = -Math.PI / 2) => (g) => { for (let i = 0; i < n; i++) { const a = a0 + (i / n) * TAU; const px = x + Math.cos(a) * R, py = y + Math.sin(a) * R * 1.15; if (i) g.lineTo(px, py); else g.moveTo(px, py); } g.closePath(); };
   S.paint(gem(r * 1.35), { c: STEEL, mat: 'chrome', h: 0.1, hm: 'add' });
   S.paint(gem(r), { c: (g) => { const gr = g.createRadialGradient(x - r * 0.3, y - r * 0.4, 0, x, y, r * 1.2); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.35, lighten(col, 0.5)); gr.addColorStop(1, darken(col, 0.3)); return gr; }, mat: 'glass', h: (s) => s.hDome(x, y, r * 1.1, 0.95, 0.55) });
@@ -33,7 +33,7 @@ function core(S, x, y, r, col, n = 6) {
   S.light(gem(r * 0.7), rgba(col, 0.75), r * 0.8);
   S.light(circ(x, y, r * 0.3), rgba('#ffffff', 0.8), r * 0.3);
 }
-function intake(S, x, y, w, h, col) {
+export function intake(S, x, y, w, h, col) {
   for (const s of [1, -1]) {
     const p = (g) => { g.moveTo(s * (x - w * 0.5), y - h * 0.5); g.lineTo(s * (x + w * 0.5), y - h * 0.35); g.lineTo(s * (x + w * 0.4), y + h * 0.5); g.lineTo(s * (x - w * 0.55), y + h * 0.35); g.closePath(); };
     S.paint(p, { c: '#05050a', mat: 'matte', h: 0.12 });
@@ -41,21 +41,21 @@ function intake(S, x, y, w, h, col) {
     for (let k = -h / 2 + 1; k < h / 2; k += 1.4) S.stroke((g) => { g.moveTo(s * (x - w * 0.42), y + k); g.lineTo(s * (x + w * 0.38), y + k + 0.3); }, { c: '#4a5064', w: 0.35, h: 0.06 });
   }
 }
-function nozzle(S, x, y, r) {
+export function nozzle(S, x, y, r) {
   for (const s of x ? [1, -1] : [1]) {
     S.paint((g) => g.ellipse(x * s, y, r, r * 0.7, 0, 0, TAU), { c: STEEL, mat: 'chrome', h: (sc) => sc.hDomeE(x * s, y, r, r * 0.7, 0.6, 0.3) });
     S.paint((g) => g.ellipse(x * s, y, r * 0.66, r * 0.44, 0, 0, TAU), { c: '#04040a', mat: 'matte', h: 0.25 });
   }
 }
-function cannon(S, x, y, len, w = 1.6, col = STEEL) {
+export function cannon(S, x, y, len, w = 1.6, col = STEEL) {
   for (const s of [1, -1]) {
     S.paint((g) => g.rect(s * x - w / 2, y - len, w, len), { c: col, mat: 'chrome', h: (sc) => sc.hCyl(s * x - w / 2, 0, s * x + w / 2, 0, 0.6, 0.3) });
     S.paint((g) => g.rect(s * x - w * 0.8, y - len * 0.45, w * 1.6, 2.2), { c: GOLD, mat: 'gold', h: (sc) => sc.hCyl(s * x - w * 0.8, 0, s * x + w * 0.8, 0, 0.65, 0.35) });
     S.light((g) => g.ellipse(s * x, y - len + 0.4, w * 0.35, 0.6, 0, 0, TAU), '#ffffff', 0.6);
   }
 }
-function leds(S, segs, col) { S.stroke((g) => { for (const [x1, y1, x2, y2] of segs) for (const s of [1, -1]) { g.moveTo(x1 * s, y1); g.lineTo(x2 * s, y2); } }, { c: lighten(col, 0.5), w: 0.9, emi: col, ew: 1.1, h: 0.03 }); }
-function grooves(S, segs) { S.grooves(segs.flatMap(([a, b, c, d]) => [[a, b, c, d], [-a, b, -c, d]]), 0.45, 0.05); }
+export function leds(S, segs, col) { S.stroke((g) => { for (const [x1, y1, x2, y2] of segs) for (const s of [1, -1]) { g.moveTo(x1 * s, y1); g.lineTo(x2 * s, y2); } }, { c: lighten(col, 0.5), w: 0.9, emi: col, ew: 1.1, h: 0.03 }); }
+export function grooves(S, segs) { S.grooves(segs.flatMap(([a, b, c, d]) => [[a, b, c, d], [-a, b, -c, d]]), 0.45, 0.05); }
 
 // ---------- fiches ----------
 const DESIGNS = {

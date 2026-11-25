@@ -95,7 +95,8 @@ export function evolveShip(id) {
 }
 function evoDmg(ev) { return 1 + [0, 0.1, 0.2, 0.2, 0.3, 0.3, 0.45][ev || 0]; }
 // ---------- Peintures ----------
-export const SKIN_COST = [null, { gems: 15 }, { gems: 30 }, { gems: 50 }];
+export const SKIN_COST = [null, { gems: 120 }, { gems: 240 }, { gems: 400 }];
+export const SKIN_PERKS = ['Peinture d’origine', 'Puissance +15 %', 'Surchauffe : cadence +15 %, spéciale +20 %', 'Aura de foudre : décharge qui efface les tirs proches et frappe les aliens'];
 export function skinOwned(id, i) { const s = S.ships[id]; return i === 0 || !!(s && s.skins && s.skins.includes(i)); }
 export function buySkin(id, i) {
   const s = S.ships[id];
@@ -109,10 +110,11 @@ export function setSkin(id, i) { const s = S.ships[id]; if (s && skinOwned(id, i
 export function shipStats(id) {
   const s = S.ships[id] || { pw: 0, rt: 0, sp: 0, m: { dmg: 0, rate: 0, spec: 0 }, aw: 0 };
   return {
-    dmg: (1 + 0.12 * s.pw) * (1 + s.m.dmg) * evoDmg(s.ev),
-    rate: (1 + 0.045 * s.rt) * (1 + s.m.rate),
-    spec: (1 + 0.1 * s.sp) * (1 + s.m.spec) * (1 + 0.25 * s.aw) * ((s.ev || 0) >= 5 ? 1.3 : 1),
+    dmg: (1 + 0.12 * s.pw) * (1 + s.m.dmg) * evoDmg(s.ev) * (s.skin === 1 ? 1.15 : 1),
+    rate: (1 + 0.045 * s.rt) * (1 + s.m.rate) * (s.skin === 2 ? 1.15 : 1),
+    spec: (1 + 0.1 * s.sp) * (1 + s.m.spec) * (1 + 0.25 * s.aw) * ((s.ev || 0) >= 5 ? 1.3 : 1) * (s.skin === 2 ? 1.2 : 1),
     ev: s.ev || 0,
+    aura: s.skin === 3,
     charge: (1 + 0.03 * s.sp) * (1 + 0.08 * S.up.charge),
     aw: s.aw,
     lv: s,

@@ -19,7 +19,8 @@ import { explode, hitSpark, deflect, sparkle, cancelPop } from './fx.js';
 import { formationSpawns, coinPattern } from '../levels/formations.js';
 import { radioLine } from './radio.js';
 import { S } from '../economy/save.js';
-import { dronePower } from '../economy/economy.js';
+import { dronePower, ownsShip, ownsDrone } from '../economy/economy.js';
+import { SHIPS, DRONES, SHIP_BY_ID, DRONE_BY_ID } from '../economy/data.js';
 import { sfx } from '../audio/sfx.js';
 import { music } from '../audio/music.js';
 import { drawPart } from './art.js';
@@ -155,6 +156,7 @@ export class Game {
     this.goalKills = 0; this.bossT = 0;
     this.wind = def.trait === 'vent' ? (Math.random() < 0.5 ? -1 : 1) * 55 : 0;
     clearParticles();
+    this.capPlan = o.noCapsules ? [] : this.makeCapPlan();
     // pré-rendu des pièces du boss (évite un à-coup à son arrivée)
     for (const ev of this.tl) if (ev.kind === 'boss') prebakeBoss(this, ev.arch, ev.mini);
     music.play(def.music, true);
@@ -222,6 +224,49 @@ export class Game {
     b.spr = kind === 'flame' || kind === 'wave' || kind === 'orb' || kind === 'vortex' ? null : pbSprite(kind, color);
     this.pbs.push(b);
     return b;
+  }
+  // Capsules : les vaisseaux et drones possédés arrivent en renfort pendant le niveau
+  makeCapPlan() {
+    const plan = [], boss = this.def.kind === 'boss' || this.def.kind === 'miniboss';
+    const ships = SHIPS.filter((s) => s.id !== 'etincelle' && ownsShip(s.id));
+    const drones = DRONES.filter((d) => ownsDrone(d.id));
+    if (drones.length) { plan.push({ at: boss ? 0.06 : 0.1, kind: 'dronecap' }); if (drones.length > 1) plan.push({ at: boss ? 0.3 : 0.42, kind: 'dronecap' }); }
+    if (ships.length) { plan.push({ at: boss ? 0.16 : 0.27, kind: 'shipcap' }); if (!boss && ships.length > 1) plan.push({ at: 0.66, kind: 'shipcap' }); }
+    if (!boss && drones.length > 2) plan.push({ at: 0.8, kind: 'dronecap' });
+    return plan.sort((a, b) => a.at - b.at);
+  }
+  pickCapsule(kind) {
+    const wsum = (arr) => arr.reduce((a, x) => a + x.w, 0);
+    let cands;
+    const falling = (id) => this.pickups.some((k) => !k.dead && k.kind === kind && k.id === id);
+    if (kind === 'shipcap') cands = SHIPS.filter((s) => s.id !== 'etincelle' && s.id !== this.player.id && ownsShip(s.id) && !falling(s.id)).map((s) => ({ id: s.id, w: s.id === S.ship ? 3 : 1 }));
+    else cands = DRONES.filter((d) => ownsDrone(d.id) && !this.drones.some((x) => x.id === d.id) && !falling(d.id)).map((d) => ({ id: d.id, w: S.slots.includes(d.id) ? 3 : 1 }));
+    if (!cands.length) return null;
+    let r = Math.random() * wsum(cands);
+    for (const c of cands) { r -= c.w; if (r <= 0) return c.id; }
+    return cands[0].id;
+  }
+  updateCapsules() {
+    const P = this.capPlan;
+    if (!P.length || this.state !== 'play') return;
+    const pr = this.boss ? 1 : this.progress();
+    if (pr < P[0].at) return;
+    const c = P.shift(), id = this.pickCapsule(c.kind);
+    if (!id) return;
+    const k = makePickup(c.kind, rand(90, view.w - 90), view.safeT - 30, 1);
+    k.id = id; k.vx = 0; k.vy = 42;
+    this.pickups.push(k);
+    sfx.energy();
+    this.msg(c.kind === 'shipcap' ? 'RENFORT : ' + SHIP_BY_ID[id].name.toUpperCase() + ' !' : 'DRONE EN APPROCHE !', c.kind === 'shipcap' ? SHIP_BY_ID[id].color : DRONE_BY_ID[id].color, 17, 1.6);
+  }
+  addDrone(id) {
+    if (this.drones.some((d) => d.id === id)) { this.stats.coins += Math.round(20 * this.D.loot); this.player.gauge = Math.min(1, this.player.gauge + 0.3); return; }
+    const used = this.drones.map((d) => d.slot);
+    let slot = [0, 1].find((x) => !used.includes(x));
+    if (slot === undefined) { const old = this.drones.shift(); slot = old.slot; }
+    const d = new Drone(this, id, slot, dronePower(id));
+    d.x = this.player.x; d.y = this.player.y;
+    this.drones.push(d);
   }
   dropPickup(kind, x, y, v = 1) {
     const k = makePickup(kind, x, y, v);
@@ -364,6 +409,22 @@ export class Game {
       case 'heart':
         if (p.hp < p.maxHp) { p.hp++; this.msg('COQUE RÉPARÉE', '#ff8aa8', 15, 0.9); } else this.stats.coins += Math.round(15 * this.D.loot);
         sfx.heal(); break;
+      case 'shipcap': {
+        const D = SHIP_BY_ID[k.id];
+        p.switchShip(k.id);
+        sfx.nova(); flash(D.color, 0.45); addShake(0.25);
+        this.msg(D.name.toUpperCase() + ' !', D.color, 28, 1.5, true);
+        for (let i = 0; i < 3; i++) fx.ring(p.x, p.y, 10, 90 + i * 50, 0.5 + i * 0.12, i ? D.color : '#ffffff', 4 - i);
+        break;
+      }
+      case 'dronecap': {
+        const D = DRONE_BY_ID[k.id];
+        this.addDrone(k.id);
+        sfx.power(); flash(D.color, 0.25);
+        this.msg('DRONE ' + D.name.toUpperCase() + ' !', D.color, 20, 1.2);
+        fx.ring(p.x, p.y, 10, 70, 0.4, D.color, 3);
+        break;
+      }
       case 'nova':
         p.super = p.superMax; this.stats.novas++;
         sfx.nova(); flash('#ffffff', 0.5); addShake(0.3);
@@ -653,6 +714,7 @@ export class Game {
   updateWorld(dt) {
     this.bg.update(dt);
     this.director(dt);
+    this.updateCapsules();
     this.events.update(dt);
     this.buildTargets();
     this.beamsDraw.length = 0;

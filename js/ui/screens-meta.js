@@ -42,104 +42,109 @@ register('hangar', {
     if (hangarIdx < 0) hangarIdx = Math.max(0, SHIPS.findIndex((s) => s.id === S.ship));
     const tabs = sectTabs([['ships', 'Vaisseaux', () => { hangarTab = 'ships'; refresh(); }], ['drones', 'Drones', () => { hangarTab = 'drones'; refresh(); }], ['shop', 'Améliorations', () => { hangarTab = 'shop'; refresh(); }]], hangarTab);
     const body = hangarTab === 'ships' ? shipsTab() : hangarTab === 'drones' ? dronesTab() : shopList();
-    return h('div', null, topbar('', curBar(['coins', 'crystals', 'gems', 'parts'])), tabs, h('div', { class: 'scroll' }, body));
+    return h('div', null, topbar('', curBar(['coins', 'crystals', 'gems', 'parts'])), tabs, hangarTab === 'ships' ? h('div', { class: 'hship' }, body) : h('div', { class: 'scroll' }, body));
   },
 });
-let previewSkin = null, previewShip = null;
+let previewSkin = null, previewShip = null, shipSub = 'evo';
 function evoPanel(sh) {
   const ev = E.evoLevel(sh.id), ec = E.evoCost(sh.id), have = E.shards(sh.id);
-  const stars = h('div', { class: 'evo-stars' });
-  for (let i = 0; i < E.EVO_MAX; i++) stars.append(h('i', { class: i < ev ? 'on' : '' }, '★'));
-  const p = h('div', { class: 'panel evo', style: `--c:${sh.color}` },
+  const p = h('div', { class: 'hs-pane evo', style: `--c:${sh.color}` },
     h('div', { class: 'evo-head' }, h('img', { src: iconURL('shard_' + sh.id, 96), alt: '' }),
-      h('div', { class: 'evo-t' }, h('b', null, 'Évolution'), stars),
-      h('div', { class: 'evo-have' }, h('b', null, fmt(have)), h('small', null, 'Éclats ' + sh.name))));
+      h('div', { class: 'evo-t' }, h('b', null, 'Éclats ' + sh.name), h('small', null, 'Boss, coffres et roue en donnent')),
+      h('div', { class: 'evo-have' }, h('b', null, fmt(have)))));
   if (ec) {
     const k = Math.min(1, have / ec.sh);
-    p.append(h('div', { class: 'evo-next' }, h('span', null, `★${ev + 1} : `), E.EVO_PERKS[ev]),
-      h('div', { class: 'evo-bar' }, h('i', { style: `width:${Math.round(k * 100)}%` }), h('span', null, `${fmt(have)} / ${ec.sh} éclats`)));
+    p.append(h('div', { class: 'evo-bar' }, h('i', { style: `width:${Math.round(k * 100)}%` }), h('span', null, `${fmt(have)} / ${ec.sh} éclats pour ★${ev + 1}`)));
     const b = btn(h('span', { class: 'cont-btn' }, 'Évoluer ', h('img', { src: iconURL('shard_' + sh.id, 48), alt: '' }), h('b', null, String(ec.sh)), ' + ', costEl({ coins: ec.coins })), 'gold wide' + (E.canEvolve(sh.id) ? '' : ' cant'),
       () => { if (E.evolveShip(sh.id)) { flash(sh.color, 0.5); addShake(0.3); sfx.chestOpen(3); toast('Évolution ★' + E.evoLevel(sh.id) + ' !', E.EVO_PERKS[E.evoLevel(sh.id) - 1], SVG.star || SVG.ship, sh.color); refresh(); } },
       { onDeny: () => toast(have < ec.sh ? 'Pas assez d’éclats' : 'Pas assez de pièces', 'Les éclats tombent des boss, des coffres et de la roue.', SVG.lock, '#ff4f6e') });
     p.append(b);
   } else p.append(h('div', { class: 'evo-next center' }, 'Évolution maximale atteinte !'));
   const list = h('div', { class: 'evo-list' });
-  E.EVO_PERKS.forEach((txt, i) => list.append(h('div', { class: i < ev ? 'ok' : '' }, h('b', null, '★' + (i + 1)), txt)));
-  p.append(list, h('div', { class: 'muted small', style: 'margin-top:6px' }, 'Chaque vaisseau a ses propres éclats. On les gagne en battant les boss (surtout avec ce vaisseau), dans les coffres et à la roue.'));
+  E.EVO_PERKS.forEach((txt, i) => list.append(h('div', { class: i < ev ? 'ok' : i === ev ? 'next' : '' }, h('b', null, '★' + (i + 1)), txt)));
+  p.append(list);
   return p;
 }
 function skinPanel(sh) {
   const list = shipSkins(sh.id), st = S.ships[sh.id];
-  const row = h('div', { class: 'skins' });
+  const grid = h('div', { class: 'skins' });
   list.forEach((sk, i) => {
-    const owned = E.skinOwned(sh.id, i), cur = (st.skin || 0) === i, prev = previewSkin === i;
+    const owned = E.skinOwned(sh.id, i), cur = (st.skin || 0) === i, prev = previewSkin === i && previewShip === sh.id;
     const col = sk.paint || sh.color, col2 = sk.accent || sh.color2;
-    const b = h('button', { class: 'skin' + (cur ? ' cur' : '') + (prev ? ' prev' : '') + (owned ? '' : ' locked'), style: `--a:${col};--b:${col2}`, onclick: () => {
+    grid.append(h('button', { class: 'skin' + (cur ? ' cur' : '') + (prev ? ' prev' : '') + (owned ? '' : ' locked'), style: `--a:${col};--b:${col2}`, onclick: () => {
       sfx.ui();
       if (owned) { E.setSkin(sh.id, i); previewSkin = null; refresh(); }
       else { previewSkin = i; previewShip = sh.id; refresh(); }
-    } }, h('span', { class: 'sw' }), h('small', null, sk.name), owned ? null : h('em', null, h('img', { src: iconURL('gems', 32), alt: '' }), String(E.SKIN_COST[i].gems)));
-    row.append(b);
+    } }, h('span', { class: 'sw' }), h('div', { class: 'sk-t' }, h('b', null, sk.name), h('small', null, E.SKIN_PERKS[i])),
+      cur ? h('em', { class: 'on' }, 'ÉQUIPÉE') : owned ? h('em', null, 'Équiper') : h('em', null, h('img', { src: iconURL('gems', 32), alt: '' }), String(E.SKIN_COST[i].gems))));
   });
-  const p = h('div', { class: 'panel', style: 'margin-top:10px' }, h('div', { class: 'subtitle', style: 'margin-top:0' }, 'Peintures'), row);
+  const p = h('div', { class: 'hs-pane' }, grid);
   if (previewSkin !== null && previewShip === sh.id && !E.skinOwned(sh.id, previewSkin)) {
     const c = E.SKIN_COST[previewSkin];
     p.append(buyBtn(c, 'Acheter « ' + list[previewSkin].name + ' »', () => { if (E.buySkin(sh.id, previewSkin)) { previewSkin = null; flash(sh.color, 0.4); sfx.upgrade(); refresh(); } }, 'gold wide'));
-  }
+  } else p.append(h('div', { class: 'muted small center', style: 'margin-top:6px' }, 'Chaque peinture change la couleur et donne un bonus à ce vaisseau.'));
   return p;
+}
+function modsPanel(sh) {
+  const st = E.shipStats(sh.id), lv = S.ships[sh.id];
+  const p = h('div', { class: 'hs-pane' });
+  const rows = [['pw', 'Puissance', `Dégâts ×${st.dmg.toFixed(2)}`], ['rt', 'Cadence', `Cadence ×${st.rate.toFixed(2)}`], ['sp', 'Spéciale', `Spéciale ×${st.spec.toFixed(2)}`]];
+  for (const [k, name, sub] of rows) {
+    const c = E.shipUpCost(sh.id, k);
+    const b = buyBtn(c, '', () => { if (E.upgradeShip(sh.id, k)) { celebrate(b); refresh(); } });
+    p.append(h('div', { class: 'statline' }, h('div', { class: 'lab' }, name, h('small', null, sub)), pips(lv[k], E.SHIP_MAX[k]), b));
+  }
+  const m = lv.m;
+  p.append(h('div', { class: 'muted small', style: 'margin-top:6px' }, `Modules de coffre : +${Math.round(m.dmg * 100)} % dégâts · +${Math.round(m.rate * 100)} % cadence · +${Math.round(m.spec * 100)} % spéciale` + (lv.aw ? ` · Éveil ${lv.aw}/3` : '')));
+  return p;
+}
+function infoPanel(sh) {
+  return h('div', { class: 'hs-pane' },
+    h('p', { style: 'margin:0 0 8px;color:#d8dcff;font-size:13.5px' }, sh.desc),
+    h('div', { class: 'rline' }, h('span', null, 'Arme'), h('b', null, sh.weapon)),
+    h('div', { class: 'rline' }, h('span', null, 'Spéciale'), h('b', { style: `color:${sh.color}` }, sh.special)),
+    h('div', { class: 'muted small', style: 'margin-top:4px' }, sh.sdesc),
+    h('div', { class: 'drone-help', style: 'margin-top:10px' }, h('b', null, 'En partie'), sh.id === 'etincelle' ? 'Étincelle est ton vaisseau de départ : tu décolles toujours avec lui.' : 'Tu décolles avec Étincelle. Ce vaisseau arrive en capsule de renfort pendant le niveau : attrape-la pour le piloter. Le favori ★ tombe plus souvent.'));
 }
 function shipsTab() {
   const sh = SHIPS[hangarIdx];
   if (previewShip !== sh.id) previewSkin = null;
   const own = E.ownsShip(sh.id);
   const rar = RARITY[sh.rarity];
-  const stage = h('div', { class: 'ship-stage' },
+  const ev = own ? E.evoLevel(sh.id) : 0;
+  const stars = h('div', { class: 'evo-stars small' });
+  for (let i = 0; i < E.EVO_MAX; i++) stars.append(h('i', { class: i < ev ? 'on' : '' }, '★'));
+  const fav = own ? h('button', { class: 'favbtn' + (S.ship === sh.id ? ' on' : ''), onclick: () => { sfx.upgrade(); S.ship = sh.id; saveSoon(); refresh(); } }, S.ship === sh.id ? '★ Favori' : '☆ Favori') : null;
+  const stage = h('div', { class: 'ship-stage compact' },
     h('button', { class: 'iconbtn arrow l', html: SVG.left, onclick: () => { sfx.ui(); hangarIdx = (hangarIdx + SHIPS.length - 1) % SHIPS.length; refresh(); } }),
-    h('button', { class: 'iconbtn arrow r', html: SVG.right, onclick: () => { sfx.ui(); hangarIdx = (hangarIdx + 1) % SHIPS.length; refresh(); } }));
+    h('button', { class: 'iconbtn arrow r', html: SVG.right, onclick: () => { sfx.ui(); hangarIdx = (hangarIdx + 1) % SHIPS.length; refresh(); } }),
+    fav,
+    h('div', { class: 'stage-id' }, h('div', { class: 'ship-name', style: `color:${sh.color}` }, sh.name),
+      h('div', { class: 'stage-sub' }, h('span', { class: 'tag', style: `color:${rar.color}` }, rar.name), stars, h('span', { class: 'muted small' }, own ? `⚡ ${fmt(E.powerRating(sh.id))}` : `${hangarIdx + 1}/${SHIPS.length}`))));
   widget(stage, (r, t) => {
-    const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    const cx = r.x + r.w / 2, cy = r.y + r.h * 0.4;
     ctx.globalCompositeOperation = 'lighter';
-    const g = glow(sh.color, 32); ctx.globalAlpha = own ? 0.7 : 0.3; ctx.drawImage(g.c, cx - 110, cy - 110, 220, 220); ctx.globalAlpha = 1;
+    const g = glow(sh.color, 32); ctx.globalAlpha = own ? 0.6 : 0.25; ctx.drawImage(g.c, cx - 90, cy - 90, 180, 180); ctx.globalAlpha = 1;
     ctx.strokeStyle = sh.color; ctx.globalAlpha = 0.35; ctx.lineWidth = 1;
-    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(cx, cy + 60, 70 + i * 16, 14 + i * 4, 0, 0, TAU); ctx.stroke(); }
+    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(cx, cy + 46, 54 + i * 13, 11 + i * 3, 0, 0, TAU); ctx.stroke(); }
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-    setT(cx, cy + Math.sin(t * 2) * 5, 3);
+    setT(cx, cy + Math.sin(t * 2) * 4, 2.35);
     if (!own) ctx.globalAlpha = 0.45;
     drawHypercar(ctx, sh.id, t, Math.sin(t * 0.9) * 0.25, previewSkin !== null ? { skin: previewSkin } : undefined);
     ctx.globalAlpha = 1; baseT();
-    if (Math.random() < 0.5) fx.dot(cx + rand(-6, 6), cy + 48, rand(-10, 10), rand(80, 140), 0.4, 8, sh.color);
+    if (Math.random() < 0.4) fx.dot(cx + rand(-5, 5), cy + 40, rand(-8, 8), rand(70, 120), 0.35, 7, sh.color);
   });
-  const st = E.shipStats(sh.id);
-  const lv = S.ships[sh.id];
-  const out = [stage,
-    h('div', { class: 'ship-name', style: `color:${sh.color}` }, sh.name),
-    h('div', { class: 'center' }, h('span', { class: 'tag', style: `color:${rar.color}` }, rar.name), ' ', h('span', { class: 'muted small' }, `${hangarIdx + 1}/${SHIPS.length}`)),
-    h('p', { class: 'center', style: 'margin:8px 0;color:#d8dcff;font-size:14px' }, sh.desc),
-    h('div', { class: 'panel' },
-      h('div', { class: 'rline' }, h('span', null, 'Arme'), h('b', null, sh.weapon)),
-      h('div', { class: 'rline' }, h('span', null, 'Spéciale'), h('b', { style: `color:${sh.color}` }, sh.special)),
-      h('div', { class: 'muted small', style: 'margin-top:4px' }, sh.sdesc)),
-  ];
+  const out = [stage];
   if (own) {
-    out.push(evoPanel(sh), skinPanel(sh));
-    const up = h('div', { class: 'panel', style: 'margin-top:10px' });
-    const rows = [['pw', 'Puissance', `Dégâts ×${st.dmg.toFixed(2)}`], ['rt', 'Cadence', `Cadence ×${st.rate.toFixed(2)}`], ['sp', 'Spéciale', `Spéciale ×${st.spec.toFixed(2)}`]];
-    for (const [k, name, sub] of rows) {
-      const c = E.shipUpCost(sh.id, k);
-      const b = buyBtn(c, '', () => { if (E.upgradeShip(sh.id, k)) { celebrate(b); refresh(); } });
-      up.append(h('div', { class: 'statline' }, h('div', { class: 'lab' }, name, h('small', null, sub)), pips(lv[k], E.SHIP_MAX[k]), b));
-    }
-    const m = lv.m;
-    if (m.dmg + m.rate + m.spec > 0 || lv.aw) up.append(h('div', { class: 'muted small', style: 'margin-top:6px' }, `Modules : +${Math.round(m.dmg * 100)} % dégâts · +${Math.round(m.rate * 100)} % cadence · +${Math.round(m.spec * 100)} % spéciale` + (lv.aw ? ` · Éveil ${lv.aw}/3` : '')));
-    out.push(up);
-    out.push(h('div', { style: 'margin-top:12px' }, S.ship === sh.id ? btn('✓ Vaisseau équipé', 'green wide off', null) : btn('Équiper', 'primary big wide', () => { S.ship = sh.id; saveSoon(); sfx.upgrade(); refresh(); })));
+    const subs = [['evo', 'Évolution'], ['skins', 'Peintures'], ['mods', 'Modules'], ['info', 'Infos']];
+    out.push(h('div', { class: 'subtabs' }, ...subs.map(([k, l]) => h('button', { class: shipSub === k ? 'on' : '', onclick: () => { if (shipSub !== k) { sfx.ui(); shipSub = k; refresh(); } } }, l))));
+    out.push(shipSub === 'evo' ? evoPanel(sh) : shipSub === 'skins' ? skinPanel(sh) : shipSub === 'mods' ? modsPanel(sh) : infoPanel(sh));
   } else {
     const can = S.maxLevel >= sh.req;
-    out.push(h('div', { class: 'panel center', style: 'margin-top:10px' },
-      can ? h('div', null, h('p', null, 'Débloquer ce vaisseau :'), buyBtn(sh.cost, 'Débloquer', () => { if (E.unlockShip(sh.id)) { flash(sh.color, 0.4); sfx.chestOpen(2); refresh(); } }, 'gold big'))
-        : h('p', null, h('span', { html: SVG.lock, style: 'display:inline-block;width:18px;vertical-align:-3px' }), ` Atteignez le niveau ${sh.req} pour le débloquer (ou trouvez-le dans un coffre légendaire).`)));
+    out.push(infoPanel(sh), h('div', { class: 'center', style: 'margin-top:8px' },
+      can ? buyBtn(sh.cost, 'Débloquer', () => { if (E.unlockShip(sh.id)) { flash(sh.color, 0.4); sfx.chestOpen(2); refresh(); } }, 'gold big wide')
+        : h('p', { class: 'muted small' }, h('span', { html: SVG.lock, style: 'display:inline-block;width:16px;vertical-align:-3px' }), ` Niveau ${sh.req} requis (ou coffre légendaire).`)));
   }
-  out.push(h('div', { class: 'muted small center', style: 'margin-top:10px' }, `Puissance actuelle : ${fmt(E.powerRating())}`));
   return out;
 }
 function dronesTab() {
@@ -151,11 +156,11 @@ function dronesTab() {
     const sl = h('div', { class: 'slot' + (id && unlocked ? ' filled' : '') });
     if (!unlocked) sl.append(h('span', { html: SVG.lock, style: 'width:18px;display:inline-block' }), ' Verrouillé');
     else if (id) { const cv = h('canvas', { width: 88, height: 88 }); sl.append(cv, DRONE_BY_ID[id].name); drawDroneCanvas(cv, id); sl.onclick = () => { E.unequipDrone(i); sfx.back(); refresh(); }; }
-    else sl.append('Emplacement libre');
+    else sl.append('Favori libre');
     slots.append(sl);
   }
-  out.push(h('div', { class: 'drone-help' }, h('b', null, 'Escorte'), 'Tes drones volent à gauche et à droite de ton vaisseau et combattent avec toi. Équipe-en deux : un par emplacement. Touche un emplacement pour le libérer.'),
-    h('div', { class: 'subtitle' }, 'Emplacements · gauche / droite'), slots, h('div', { class: 'subtitle' }, 'Drones'));
+  out.push(h('div', { class: 'drone-help' }, h('b', null, 'Escorte'), 'Tu décolles sans drone. Pendant le niveau, tes drones arrivent en capsules : attrape-les et ils volent à gauche et à droite de ton vaisseau. Tes deux favoris tombent plus souvent.'),
+    h('div', { class: 'subtitle' }, 'Favoris'), slots, h('div', { class: 'subtitle' }, 'Drones'));
   const cards = h('div', { class: 'cards' });
   for (const d of DRONES) {
     const own = E.ownsDrone(d.id);
@@ -168,7 +173,7 @@ function dronesTab() {
       const c = E.droneUpCost(d.id);
       const b = buyBtn(c, '▲', () => { if (E.upgradeDrone(d.id)) { celebrate(b); refresh(); } });
       card.append(h('div', { class: 'row', style: 'flex-wrap:wrap;gap:4px' }, b,
-        S.slots.slice(0, E.slotCount()).includes(d.id) ? null : btn('Équiper', 'small', () => { let slot = S.slots.slice(0, E.slotCount()).indexOf(null); if (slot < 0) slot = 0; E.equipDrone(d.id, slot); refresh(); })));
+        S.slots.slice(0, E.slotCount()).includes(d.id) ? null : btn('☆ Favori', 'small', () => { let slot = S.slots.slice(0, E.slotCount()).indexOf(null); if (slot < 0) slot = 0; E.equipDrone(d.id, slot); refresh(); })));
     } else {
       const can = S.maxLevel >= d.req;
       card.append(can ? buyBtn(d.cost, '', () => { if (E.unlockDrone(d.id)) { sfx.chestOpen(1); refresh(); } }) : h('div', { class: 'muted small' }, `Niveau ${d.req} requis`));

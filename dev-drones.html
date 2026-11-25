@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><title>Drones</title></head>
+<body style="margin:0;background:#06041a">
+<canvas id="c" width="1120" height="330"></canvas>
+<script type="module">
+import { drawDroneSculpt } from './js/game/droneart.js';
+import { DRONES } from './js/economy/data.js';
+const c = document.getElementById('c'), g = c.getContext('2d');
+const t = +(new URLSearchParams(location.search).get('t') || 0.7);
+g.fillStyle = '#0a0620'; g.fillRect(0, 0, 1120, 330);
+DRONES.forEach((d, i) => { g.setTransform(3.4, 0, 0, 3.4, 80 + i * 160, 150); drawDroneSculpt(g, d.id, d.color, t + i * 0.3, 1, -Math.PI / 2 - 0.4); });
+window.ready = true;
+</script></body></html>
