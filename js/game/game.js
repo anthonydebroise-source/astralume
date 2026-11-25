@@ -14,7 +14,7 @@ import { Background } from './background.js';
 import { Events } from './events.js';
 import { Constellation } from './combo.js';
 import { Hud } from './hud.js';
-import { makePickup, updatePickups, drawPickups, PK } from './pickups.js';
+import { makePickup, updatePickups, drawPickups, drawCapsule, PK } from './pickups.js';
 import { explode, hitSpark, deflect, sparkle, cancelPop } from './fx.js';
 import { formationSpawns, coinPattern } from '../levels/formations.js';
 import { endlessChunk } from '../levels/generator.js';
@@ -232,6 +232,7 @@ export class Game {
     this.goalKills = 0; this.bossT = 0;
     this.wind = def.trait === 'vent' ? (Math.random() < 0.5 ? -1 : 1) * 55 : 0;
     clearParticles();
+    this.capGot = new Set(); this.capHold = null;
     this.capPlan = o.noCapsules ? [] : this.makeCapPlan();
     this.waveN = 0; this.rushKills = 0;
     if (def.mode === 'rush') { this.rushQ = def.rush.slice(); this.rushN = 0; this.rushWait = false; for (const b of this.rushQ) prebakeBoss(this, b.arch, false); }
@@ -303,38 +304,102 @@ export class Game {
     this.pbs.push(b);
     return b;
   }
-  // Capsules : les vaisseaux et drones possédés arrivent en renfort pendant le niveau
+  // Capsules : un alien (ou une partie du colosse) s'empare d'une capsule ; il faut le détruire pour la libérer
   makeCapPlan() {
-    // peu de capsules, bien espacées : 1 vaisseau et 2 drones au plus par niveau
+    // 2 occasions de changer de vaisseau par niveau, 1 à 2 drones (chacun une seule fois par partie)
     const plan = [], boss = this.def.kind === 'boss' || this.def.kind === 'miniboss';
     const ships = SHIPS.filter((s) => s.id !== 'etincelle' && ownsShip(s.id));
     const drones = DRONES.filter((d) => ownsDrone(d.id));
-    if (drones.length) { plan.push({ at: boss ? 0.08 : 0.15, kind: 'dronecap' }); if (!boss) plan.push({ at: 0.62, kind: 'dronecap' }); }
-    if (ships.length) plan.push({ at: boss ? 0.22 : 0.36, kind: 'shipcap' });
+    if (drones.length) { plan.push({ at: boss ? 0.1 : 0.16, kind: 'dronecap' }); if (!boss && drones.length > 1) plan.push({ at: 0.6, kind: 'dronecap' }); }
+    if (ships.length) { plan.push({ at: boss ? 0.26 : 0.3, kind: 'shipcap' }); plan.push({ at: boss ? 1 : 0.74, kind: 'shipcap', boss }); }
     return plan.sort((a, b) => a.at - b.at);
   }
   // liste des choix d'une capsule : le contenu défile, on l'attrape quand on voit celui qu'on veut
   capOptions(kind) {
     let list;
     if (kind === 'shipcap') list = SHIPS.filter((s) => s.id !== 'etincelle' && s.id !== this.player.id && ownsShip(s.id)).map((s) => s.id).sort((a, b) => (b === S.ship) - (a === S.ship));
-    else list = DRONES.filter((d) => ownsDrone(d.id) && !this.drones.some((x) => x.id === d.id)).map((d) => d.id).sort((a, b) => S.slots.includes(b) - S.slots.includes(a));
+    else list = DRONES.filter((d) => ownsDrone(d.id) && !this.capGot.has(d.id) && !this.drones.some((x) => x.id === d.id)).map((d) => d.id).sort((a, b) => S.slots.includes(b) - S.slots.includes(a));
     return list;
   }
   pickCapsule(kind) { const l = this.capOptions(kind); return l.length ? l[0] : null; }
-  updateCapsules() {
+  // Choix du porteur : un alien bien visible, solide, déjà en place à l'écran
+  capHost() {
+    if (this.boss) {
+      const b = this.boss;
+      if (b.state !== 'fight') return null;
+      const parts = b.parts.filter((p) => p.alive && p.kind !== 'core' && !p.cap);
+      return parts.length ? { part: parts[Math.floor(Math.random() * parts.length)] } : null;
+    }
+    const NO = { asteroide: 1, bulle: 1, mimique: 1, emissile: 1, obus: 1, serpentSeg: 1, larve: 1, spore: 1 };
+    let best = null, bs = -1;
+    for (const e of this.enemies) {
+      if (e.dead || e.ground || e.child || !e.primary || NO[e.type] || e.cap || e.hidden) continue;
+      if (e.x < 40 || e.x > view.w - 40 || e.y < view.safeT + 70 || e.y > view.h * 0.5) continue;
+      const sc = e.max + (e.T.cls === 'l' ? 400 : e.T.cls === 'm' ? 200 : 0) + Math.random() * 50;
+      if (sc > bs) { bs = sc; best = e; }
+    }
+    return best ? { enemy: best } : null;
+  }
+  updateCapsules(dt = 1 / 60) {
     const P = this.capPlan;
+    if (this.capHold) { // une capsule est tenue par un porteur
+      const H = this.capHold;
+      H.t += dt; H.swapT -= dt;
+      if (H.swapT <= 0) { H.swapT = 1.5; H.oi = (H.oi + 1) % H.opts.length; H.id = H.opts[H.oi]; }
+      if (H.part) {
+        const b = H.part.boss;
+        if (!H.part.alive || !b || b.dead || b.state === 'dying') { this.capHold = null; this.releaseCapsule(H, H.part.x, H.part.y); }
+      } else if (H.enemy.dead || H.enemy.gone) {
+        this.capHold = null;
+        if (H.enemy.capKilled) this.releaseCapsule(H, H.enemy.x, H.enemy.y);
+        else if ((H.retry || 0) < 2) P.unshift({ at: 0, kind: H.kind, retry: (H.retry || 0) + 1 }); // le porteur s'est enfui : un autre reprendra la capsule
+      }
+      return;
+    }
     if (!P.length || this.state !== 'play') return;
     if (this.pickups.some((k) => !k.dead && (k.kind === 'shipcap' || k.kind === 'dronecap'))) return; // une seule à la fois
-    const pr = this.boss ? 1 : this.progress();
-    if (pr < P[0].at) return;
-    const c = P.shift(), opts = this.capOptions(c.kind);
-    if (!opts.length) return;
-    const k = makePickup(c.kind, rand(110, view.w - 110), view.safeT - 30, 1);
-    k.opts = opts; k.oi = 0; k.id = opts[0]; k.swapT = 1.5; k.vx = 0; k.vy = 34;
-    this.pickups.push(k);
+    const c = P[0];
+    if (c.boss ? !(this.boss && this.boss.state === 'fight' && this.boss.phase >= 1) : (this.boss ? false : this.progress() < c.at)) return;
+    const opts = this.capOptions(c.kind);
+    if (!opts.length) { P.shift(); return; }
+    const host = this.capHost();
+    if (!host) return;
+    P.shift();
+    this.capHold = { kind: c.kind, opts, oi: 0, id: opts[0], swapT: 1.5, t: 0, retry: c.retry || 0, ...host };
+    if (host.enemy) { const e = host.enemy; e.cap = this.capHold; e.hp *= 1.6; e.max *= 1.6; fx.ring(e.x, e.y, 10, 70, 0.45, '#ffffff', 3); }
+    else { host.part.cap = this.capHold; fx.ring(host.part.x, host.part.y, 10, 70, 0.45, '#ffffff', 3); }
     sfx.energy();
-    this.msg(c.kind === 'shipcap' ? 'CAPSULE DE RENFORT !' : 'CAPSULE DE DRONE !', c.kind === 'shipcap' ? '#ffffff' : '#38f2ff', 18, 1.6);
-    if (opts.length > 1) this.later(1.2, () => this.msg('Son contenu change : attrape-la au bon moment !', '#d8dcff', 12, 2));
+    this.msg((host.part ? 'LE COLOSSE' : 'UN ALIEN') + (c.kind === 'shipcap' ? ' VOLE UN VAISSEAU !' : ' VOLE UN DRONE !'), c.kind === 'shipcap' ? '#ffffff' : '#38f2ff', 18, 1.6);
+    this.later(1.1, () => this.msg(host.part ? 'Détruis cette partie du colosse pour le libérer !' : 'Abats le porteur pour libérer la capsule !', '#d8dcff', 12, 2));
+  }
+  releaseCapsule(H, x, y) {
+    const opts = this.capOptions(H.kind);
+    if (!opts.length) return;
+    const k = makePickup(H.kind, clamp(x, 40, view.w - 40), Math.max(view.safeT + 40, y), 1);
+    k.oi = Math.max(0, opts.indexOf(H.id)); k.opts = opts; k.id = opts[k.oi]; k.swapT = 1.5; k.vx = 0; k.vy = 34;
+    this.pickups.push(k);
+    sfx.energy(); fx.ring(k.x, k.y, 10, 80, 0.45, '#ffffff', 4); fx.ring(k.x, k.y, 6, 50, 0.35, H.kind === 'shipcap' ? '#ffd23f' : '#38f2ff', 3);
+    this.msg('CAPSULE LIBÉRÉE !', '#ffffff', 18, 1.2);
+    if (opts.length > 1) this.later(1.0, () => this.msg('Son contenu change : attrape-la au bon moment !', '#d8dcff', 12, 2));
+  }
+  // Capsule tenue : accrochée sous le porteur par un faisceau
+  drawHeldCapsule() {
+    const H = this.capHold;
+    if (!H) return;
+    const src = H.part || H.enemy;
+    if (!src || (H.part ? !src.alive : src.dead)) return;
+    const r = H.part ? src.r * (src.boss ? src.boss.sc : 1) : src.r * src.scale;
+    const x = src.x, y = src.y + r + 26;
+    baseT();
+    ctx.globalCompositeOperation = 'lighter';
+    const col = H.kind === 'shipcap' ? '#ffffff' : '#38f2ff';
+    ctx.strokeStyle = rgba(col, 0.35 + 0.25 * Math.sin(this.t * 12)); ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(src.x, src.y); ctx.lineTo(x, y - 10); ctx.stroke();
+    ctx.strokeStyle = rgba(col, 0.9); ctx.lineWidth = 1.4; ctx.setLineDash([4, 4]); ctx.lineDashOffset = -this.t * 40;
+    ctx.beginPath(); ctx.arc(src.x, src.y, r + 8, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    ctx.globalCompositeOperation = 'source-over';
+    drawCapsule(H, x, y, 0.95);
+    baseT();
   }
   // Modes spéciaux : survie infinie (vagues ajoutées sans fin) et ruée des colosses
   updateModes() {
@@ -345,6 +410,8 @@ export class Game {
       d.endlessK++;
       this.tl.push(...endlessChunk(d, Math.max(last, this.dirT) + 4, d.endlessK));
       this.D = Object.assign({}, this.D, { hp: this.D.hp * 1.14, fire: this.D.fire * 1.05, loot: this.D.loot * 1.05 });
+      // survie : de nouvelles capsules à reprendre aux aliens, pour changer encore de vaisseau
+      if (!this.capPlan.length) { this.capPlan.push({ at: 0, kind: 'shipcap' }); if (d.endlessK % 2 === 0) this.capPlan.push({ at: 0, kind: 'dronecap' }); }
       this.later(2, () => this.msg('MENACE NIVEAU ' + (d.endlessK + 1) + ' !', '#ff8aa8', 20, 1.6));
     }
     if (d.mode === 'rush' && !this.boss && !this.rushWait && this.dirT > 3) {
@@ -353,6 +420,7 @@ export class Game {
         this.msg('COLOSSE ' + this.rushN + ' / ' + d.rush.length, '#ffd23f', 24, 2);
         d.code = this.rushN + '/' + d.rush.length;
         this.startBoss(this.rushQ.shift());
+        if (!this.capPlan.length && this.rushN > 1) this.capPlan.push({ at: 0, kind: 'shipcap', boss: true });
       } else if (!this.timelineDone && this.bossDead) this.timelineDone = true;
     }
   }
@@ -464,6 +532,7 @@ export class Game {
     if (Math.random() < 0.006 + this.diff * 0.008) this.dropPickup('crystals', e.x, e.y, 2 + this.diff);
     if (this.diff === 2 && Math.random() < 0.004) this.dropPickup('gems', e.x, e.y);
     if (e.carrier) this.dropPickup(e.carrier, e.x, e.y);
+    if (e.cap) e.capKilled = true;
     if (e.nova) this.dropPickup('nova', e.x, e.y);
     if (e.elite) {
       this.stats.elites++;
@@ -528,7 +597,7 @@ export class Game {
       case 'dronecap': {
         if (!ownsDrone(k.id)) { this.stats.coins += Math.round(20 * this.D.loot); break; }
         const D = DRONE_BY_ID[k.id];
-        this.addDrone(k.id);
+        this.addDrone(k.id); this.capGot.add(k.id);
         sfx.power(); flash(D.color, 0.25);
         this.msg('DRONE ' + D.name.toUpperCase() + ' !', D.color, 20, 1.2);
         fx.ring(p.x, p.y, 10, 70, 0.4, D.color, 3);
@@ -860,7 +929,7 @@ export class Game {
     this.bg.update(dt);
     this.director(dt);
     this.updateModes();
-    this.updateCapsules();
+    this.updateCapsules(dt);
     this.events.update(dt);
     this.buildTargets();
     this.beamsDraw.length = 0;
@@ -1103,6 +1172,7 @@ export class Game {
       if (B.archId !== 'worm') { ctx.globalCompositeOperation = 'lighter'; baseT(); ctx.globalAlpha = 0.35; ctx.drawImage(spec.c, B.x - 70 * B.sc, B.y - 85 * B.sc, 70 * B.sc, 50 * B.sc); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
     }
     this.drawEnemies(false);
+    this.drawHeldCapsule();
     // Tirs du joueur et effets lumineux
     ctx.globalCompositeOperation = 'lighter';
     baseT();

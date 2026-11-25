@@ -97,30 +97,11 @@ export function updatePickups(g, dt) {
   }
 }
 
-export function drawPickups(g) {
-  // Lueurs (additif)
-  ctx.globalCompositeOperation = 'lighter';
-  baseT();
-  for (const k of g.pickups) {
-    const P = PK[k.kind];
-    const s = glow(P.glow, 16);
-    if (CAP[k.kind]) continue;
-    const r = (k.kind === 'coin' ? 13 + k.tier * 4 : P.r * 1.9) * (1 + 0.15 * Math.sin(k.t * 6));
-    ctx.globalAlpha = k.kind === 'coin' ? 0.55 : 0.7;
-    ctx.drawImage(s.c, k.x - r, k.y - r, r * 2, r * 2);
-  }
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = 'source-over';
-  for (const k of g.pickups) {
-    if (k.kind === 'coin') {
-      const s = coinSprite(k.tier);
-      const sx = Math.max(0.18, Math.abs(Math.cos(k.t * 5)));
-      setRTS(k.x, k.y, 0, sx, 1);
-      ctx.drawImage(s.c, -s.hw, -s.hh, s.w, s.h);
-    } else if (CAP[k.kind]) {
+// Capsule (vaisseau ou drone) : utilisée au sol, tenue par un alien porteur ou par un colosse
+export function drawCapsule(k, x, y, scale = 1.3) {
       const ship = k.kind === 'shipcap', D = ship ? SHIP_BY_ID[k.id] : DRONE_BY_ID[k.id], col = D.color;
-      const bob = Math.sin(k.t * 3) * 2, sc = 1.3 * (1 + 0.05 * Math.sin(k.t * 6) + (k.pop || 0) * 0.15);
-      setT(k.x, k.y + bob, sc);
+      const bob = Math.sin(k.t * 3) * 2, sc = scale * (1 + 0.05 * Math.sin(k.t * 6) + (k.pop || 0) * 0.15);
+      setT(x, y + bob, sc);
       ctx.globalCompositeOperation = 'lighter';
       const gl = glow(col, 16); ctx.globalAlpha = 0.75; ctx.drawImage(gl.c, -32, -38, 64, 76); ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
@@ -143,6 +124,30 @@ export function drawPickups(g) {
       ctx.fillStyle = '#ffffff'; ctx.fillText(lb, 0, -39.5);
       ctx.font = '800 6.5px "Avenir Next Condensed","Arial Narrow",system-ui,sans-serif'; ctx.fillStyle = col;
       ctx.fillText(ship ? 'VAISSEAU' : 'DRONE', 0, 39);
+}
+
+export function drawPickups(g) {
+  // Lueurs (additif)
+  ctx.globalCompositeOperation = 'lighter';
+  baseT();
+  for (const k of g.pickups) {
+    const P = PK[k.kind];
+    const s = glow(P.glow, 16);
+    if (CAP[k.kind]) continue;
+    const r = (k.kind === 'coin' ? 13 + k.tier * 4 : P.r * 1.9) * (1 + 0.15 * Math.sin(k.t * 6));
+    ctx.globalAlpha = k.kind === 'coin' ? 0.55 : 0.7;
+    ctx.drawImage(s.c, k.x - r, k.y - r, r * 2, r * 2);
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+  for (const k of g.pickups) {
+    if (k.kind === 'coin') {
+      const s = coinSprite(k.tier);
+      const sx = Math.max(0.18, Math.abs(Math.cos(k.t * 5)));
+      setRTS(k.x, k.y, 0, sx, 1);
+      ctx.drawImage(s.c, -s.hw, -s.hh, s.w, s.h);
+    } else if (CAP[k.kind]) {
+      drawCapsule(k, k.x, k.y);
     } else if (k.kind === 'nova') {
       setT(k.x, k.y);
       ctx.rotate(k.t);

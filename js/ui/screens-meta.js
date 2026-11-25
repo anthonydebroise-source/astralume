@@ -105,7 +105,7 @@ function infoPanel(sh) {
     h('div', { class: 'rline' }, h('span', null, 'Arme'), h('b', null, sh.weapon)),
     h('div', { class: 'rline' }, h('span', null, 'Spéciale'), h('b', { style: `color:${sh.color}` }, sh.special)),
     h('div', { class: 'muted small', style: 'margin-top:4px' }, sh.sdesc),
-    h('div', { class: 'drone-help', style: 'margin-top:10px' }, h('b', null, 'En partie'), sh.id === 'etincelle' ? 'Étincelle est ton vaisseau de départ : tu décolles toujours avec lui.' : 'Tu décolles avec Étincelle. Ce vaisseau arrive en capsule de renfort pendant le niveau : attrape-la pour le piloter. Le favori ★ tombe plus souvent.'));
+    h('div', { class: 'drone-help', style: 'margin-top:10px' }, h('b', null, 'En partie'), sh.id === 'etincelle' ? 'Étincelle est ton vaisseau de départ : tu décolles toujours avec lui.' : 'Tu décolles avec Étincelle. Pendant le niveau, des aliens volent des capsules (2 par niveau, plus une sur le colosse) : abats le porteur, puis attrape la capsule quand elle montre ce vaisseau. Le favori ★ apparaît en premier.'));
 }
 function shipsTab() {
   const sh = SHIPS[hangarIdx];
@@ -160,7 +160,7 @@ function dronesTab() {
     else sl.append('Favori libre');
     slots.append(sl);
   }
-  out.push(h('div', { class: 'drone-help' }, h('b', null, 'Escorte'), 'Tu décolles sans drone. Pendant le niveau, tes drones arrivent en capsules : attrape-les et ils volent à gauche et à droite de ton vaisseau pendant un temps limité (jauge sous le drone). Améliore leur Autonomie ⏱ pour qu’ils restent plus longtemps.'),
+  out.push(h('div', { class: 'drone-help' }, h('b', null, 'Escorte'), 'Tu décolles sans drone. Pendant le niveau, un alien porteur vole une capsule de drone : abats-le, attrape la capsule, et le drone vole à tes côtés pendant un temps limité (jauge sous le drone). Chaque drone ne revient qu’une fois par partie. Améliore leur Autonomie ⏱ pour qu’ils restent plus longtemps.'),
     h('div', { class: 'subtitle' }, 'Favoris'), slots, h('div', { class: 'subtitle' }, 'Drones'));
   const cards = h('div', { class: 'cards' });
   for (const d of DRONES) {
