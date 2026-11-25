@@ -192,21 +192,114 @@ const D = {
       S.light(circ(0, 0, r * 0.15), rgba(C.cg, 0.8), r * 0.2);
     },
   },
+  scindeur: {
+    build(S, C, r) {
+      S.paint(circ(0, 0, r), { c: rgba(lighten(C.c2, 0.2), 0.55), mat: 'glass', h: (k) => k.hDome(0, 0, r, 0.6, 0.1) });
+      S.stroke(circ(0, 0, r * 0.97), { c: lighten(C.c2, 0.4), mat: 'gloss', w: r * 0.06, h: 0.05, emi: rgba(C.cg, 0.5), ew: r * 0.03 });
+      for (const s of [-1, 1]) lacq(S, circ(s * r * 0.28, 0, r * 0.42), C.c1, s * r * 0.28, 0, r * 0.44, 0.9, 0.35, 0.3);
+      S.stroke((g) => { g.moveTo(0, -r * 0.35); g.lineTo(0, r * 0.35); }, { c: darken(C.c1, 0.5), w: r * 0.06, h: -0.06 });
+      for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU + 0.4; S.paint(circ(Math.cos(a) * r * 0.75, Math.sin(a) * r * 0.75, r * 0.08), { c: C.cg, mat: 'glass', h: 0.08, hm: 'add' }); S.light(circ(Math.cos(a) * r * 0.75, Math.sin(a) * r * 0.75, r * 0.06), C.cg, r * 0.1); }
+    },
+    eyes: [[-0.28, 0, 0.2], [0.28, 0, 0.2]],
+  },
+  spectre: {
+    build(S, C, r) {
+      const hood = (g) => { g.moveTo(0, -r * 1.1); g.bezierCurveTo(r * 1.0, -r * 1.0, r * 0.95, r * 0.4, r * 0.5, r * 0.9); g.quadraticCurveTo(r * 0.25, r * 0.6, 0, r * 1.4); g.quadraticCurveTo(-r * 0.25, r * 0.6, -r * 0.5, r * 0.9); g.bezierCurveTo(-r * 0.95, r * 0.4, -r * 1.0, -r * 1.0, 0, -r * 1.1); g.closePath(); };
+      S.paint(hood, { c: vg(-r, r * 1.3, rgba(lighten(C.c1, 0.35), 0.95), rgba(darken(C.c1, 0.3), 0.6)), mat: 'glass', h: (k) => k.hDomeE(0, -r * 0.2, r, r * 1.2, 0.85, 0.15) });
+      S.paint(ell(0, -r * 0.15, r * 0.55, r * 0.5), { c: '#05030c', mat: 'matte', h: 0.25 });
+      for (const s of [-1, 1]) S.light(ell(s * r * 0.22, -r * 0.18, r * 0.12, r * 0.18), lighten(C.cg, 0.3), r * 0.2);
+      S.stroke(hood, { emi: rgba(C.cg, 0.6), ew: r * 0.05, w: r * 0.04 });
+    },
+  },
+  phasme: {
+    build(S, C, r) {
+      for (const s of [-1, 1]) for (let i = 0; i < 3; i++) S.stroke((g) => { const y = -r * 0.4 + i * r * 0.45; g.moveTo(s * r * 0.15, y); g.lineTo(s * r * 0.9, y - r * 0.4 + i * r * 0.2); g.lineTo(s * r * 1.3, y + r * 0.3); }, { c: darken(C.c1, 0.2), mat: 'gloss', w: r * 0.1, h: 0.2 });
+      lacq(S, ell(0, 0, r * 0.22, r * 1.25), C.c1, 0, 0, r * 1.2, 0.8, 0.3, 0.05);
+      for (let i = 0; i < 5; i++) S.stroke((g) => { const y = -r * 0.9 + i * r * 0.42; g.moveTo(-r * 0.2, y); g.lineTo(r * 0.2, y); }, { c: GOLD, mat: 'gold', w: r * 0.05, h: 0.05 });
+      S.paint(ell(0, r * 1.15, r * 0.3, r * 0.24), { c: darken(C.c1, 0.3), mat: 'gloss', h: 0.4 });
+      for (const s of [-1, 1]) { S.paint(circ(s * r * 0.15, r * 1.2, r * 0.08), { c: C.cg, mat: 'glass', h: 0.1, hm: 'add' }); S.light(circ(s * r * 0.15, r * 1.2, r * 0.06), C.cg, r * 0.12); }
+    },
+  },
+  cristallier: {
+    build(S, C, r) {
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU, L = r * (1.1 + (i % 2) * 0.25), ca = Math.cos(a), sa = Math.sin(a);
+        const cr = poly([ca * r * 0.4 - sa * r * 0.2, sa * r * 0.4 + ca * r * 0.2, ca * L, sa * L, ca * r * 0.4 + sa * r * 0.2, sa * r * 0.4 - ca * r * 0.2]);
+        S.paint(cr, { c: (g) => { const gr = g.createLinearGradient(0, 0, ca * L, sa * L); gr.addColorStop(0, darken(C.c2, 0.2)); gr.addColorStop(1, lighten(C.c2, 0.6)); return gr; }, mat: 'glass', h: (k) => k.hLin(0, 0, ca * L, sa * L, 0.8, 0.3) });
+        S.stroke((g) => { g.moveTo(ca * r * 0.4, sa * r * 0.4); g.lineTo(ca * L, sa * L); }, { c: '#ffffff', w: r * 0.03, h: 0.03 });
+      }
+      lacq(S, circ(0, 0, r * 0.55), C.c1, 0, 0, r * 0.58, 0.95, 0.4, 0.1);
+      socket(S, 0, 0, r * 0.32, STEEL);
+    },
+    eyes: [[0, 0, 0.3, true]],
+  },
+  larve: {
+    build(S, C, r) {
+      for (let i = 2; i >= 0; i--) lacq(S, circ(0, -r * 0.7 + i * r * 0.7, r * (0.8 - i * 0.12)), i ? C.c2 : C.c1, 0, -r * 0.7 + i * r * 0.7, r * 0.8, 0.9, 0.3, 0.2);
+      for (const s of [-1, 1]) S.light(circ(s * r * 0.3, r * 0.75, r * 0.14), lighten(C.cg, 0.3), r * 0.15);
+    },
+  },
+  pondeuse: {
+    build(S, C, r) {
+      lacq(S, ell(0, -r * 0.25, r * 0.95, r * 0.85), darken(C.c2, 0.15), 0, -r * 0.3, r * 0.95, 0.85, 0.2, 0.3);
+      for (let i = 0; i < 7; i++) { const a = (i / 7) * TAU, x = Math.cos(a) * r * 0.55, y = -r * 0.3 + Math.sin(a) * r * 0.45; S.paint(ell(x, y, r * 0.16, r * 0.2), { c: rgba(lighten(C.cg, 0.3), 0.8), mat: 'glass', h: 0.15, hm: 'add' }); S.light(circ(x, y, r * 0.08), rgba(C.cg, 0.7), r * 0.1); }
+      for (let i = 0; i < 4; i++) S.stroke((g) => g.ellipse(0, -r * 0.3, r * (0.95 - i * 0.02), r * (0.25 + i * 0.18), 0, 0, Math.PI), { c: 'rgba(0,0,0,0.3)', w: r * 0.03, h: -0.04 });
+      lacq(S, ell(0, r * 0.62, r * 0.5, r * 0.36), C.c1, 0, r * 0.6, r * 0.5, 0.95, 0.4, 0.1);
+      for (const s of [-1, 1]) S.paint((g) => { g.moveTo(s * r * 0.25, r * 0.85); g.quadraticCurveTo(s * r * 0.45, r * 1.15, s * r * 0.12, r * 1.25); g.lineTo(s * r * 0.15, r * 0.9); g.closePath(); }, { c: STEEL, mat: 'chrome', h: 0.5 });
+      S.paint((g) => { g.moveTo(-r * 0.5, r * 0.45); g.quadraticCurveTo(0, r * 0.3, r * 0.5, r * 0.45); g.lineTo(r * 0.45, r * 0.55); g.quadraticCurveTo(0, r * 0.42, -r * 0.45, r * 0.55); g.closePath(); }, { c: GOLD, mat: 'gold', h: 0.1, hm: 'add' });
+      for (const s of [-1, 1]) socket(S, s * r * 0.2, r * 0.66, r * 0.1, STEEL);
+    },
+    eyes: [[-0.2, 0.66, 0.09], [0.2, 0.66, 0.09]],
+  },
+  serpentSeg: {
+    build(S, C, r) {
+      for (const s of [-1, 1]) S.paint(poly([s * r * 0.7, -r * 0.3, s * r * 1.4, -r * 0.55, s * r * 0.8, r * 0.2]), { c: GOLD, mat: 'gold', h: 0.45 });
+      lacq(S, circ(0, 0, r), C.c1, 0, 0, r * 1.02, 0.9, 0.3, 0.1);
+      S.stroke(circ(0, 0, r * 0.72), { c: STEEL, mat: 'steel', w: r * 0.22, h: 0.06 });
+      S.paint(circ(0, 0, r * 0.38), { c: '#07040e', mat: 'glass', h: 0.5 }); S.light(circ(0, 0, r * 0.3), C.cg, r * 0.3);
+    },
+  },
+  serpent: {
+    build(S, C, r) {
+      for (const s of [-1, 1]) S.paint((g) => { g.moveTo(s * r * 0.35, r * 0.6); g.quadraticCurveTo(s * r * 0.9, r * 1.1, s * r * 0.2, r * 1.45); g.lineTo(s * r * 0.25, r * 0.95); g.closePath(); }, { c: STEEL, mat: 'chrome', h: 0.5 });
+      lacq(S, ell(0, 0, r * 0.95, r * 1.05), C.c1, 0, -r * 0.1, r * 1.05, 0.95, 0.25, 0.1);
+      S.paint(poly([0, -r * 1.05, r * 0.35, -r * 0.6, r * 0.2, r * 0.1, 0, r * 0.2, -r * 0.2, r * 0.1, -r * 0.35, -r * 0.6]), { c: darken(C.c1, 0.5), mat: 'metal', h: 0.08, hm: 'add' });
+      S.stroke((g) => { g.moveTo(0, -r * 1.0); g.lineTo(0, r * 0.15); }, { c: GOLD, mat: 'gold', w: r * 0.08, h: 0.04 });
+      for (const s of [-1, 1]) socket(S, s * r * 0.42, r * 0.35, r * 0.2, GOLD);
+    },
+    eyes: [[-0.42, 0.35, 0.19], [0.42, 0.35, 0.19]],
+  },
+  asteroide: {
+    variants: 4,
+    build(S, C, r, v = 0) {
+      let sd = 17 + v * 31; const rnd = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+      const n = 11, pts = [];
+      for (let i = 0; i < n; i++) { const a = (i / n) * TAU, k = 0.8 + rnd() * 0.28; pts.push(Math.cos(a) * r * k, Math.sin(a) * r * k); }
+      const rich = C.cg === '#38f2ff';
+      const base = rich ? '#4a5878' : '#6a5844';
+      S.paint(poly(pts), { c: rg(0, 0, r * 1.1, lighten(base, 0.35), base, darken(base, 0.6)), mat: 'matte', h: (k) => k.hDome(0, 0, r, 0.85, 0.2), bump: 0.55 });
+      for (let i = 0; i < 4; i++) { const x = (rnd() - 0.5) * r * 0.9, y = (rnd() - 0.5) * r * 0.9, cr = r * (0.1 + rnd() * 0.16); S.paint(circ(x, y, cr), { c: darken(base, 0.35), mat: 'matte', h: (k) => k.hDome(x, y, cr, -0.25, 0), hm: 'add' }); S.stroke(circ(x, y, cr), { c: lighten(base, 0.2), w: r * 0.035, h: 0.06 }); }
+      // veine incandescente
+      const vein = (g) => { g.moveTo(-r * 0.55, -r * 0.25); g.lineTo(-r * 0.12, r * 0.08); g.lineTo(r * 0.3, -r * 0.08); g.lineTo(r * 0.58, r * 0.3); };
+      S.stroke(vein, { c: lighten(C.cg, 0.3), w: r * 0.07, h: -0.08, emi: C.cg, ew: r * 0.06 });
+      if (rich) for (let i = 0; i < 3; i++) { const a = i * 2.3 + v, rr = r * (0.3 + (i % 3) * 0.16), x = Math.cos(a) * rr, y = Math.sin(a) * rr, ca = Math.cos(a), sa = Math.sin(a); S.paint(poly([x - sa * r * 0.16, y + ca * r * 0.16, x + ca * r * 0.07, y + sa * r * 0.07, x + sa * r * 0.16, y - ca * r * 0.16, x - ca * r * 0.07, y - sa * r * 0.07]), { c: '#bffaff', mat: 'glass', h: 0.35, hm: 'add', emi: rgba('#38f2ff', 0.7) }); }
+    },
+  },
 };
 
 // ---------- pré-rendu ----------
 const cache = new Map();
-function art(type, T, C, elite, px) {
+function art(type, T, C, elite, px, v = 0) {
   const d = D[type];
   if (!d) return null;
   px = Math.max(2, Math.min(10, Math.ceil(px)));
-  const key = type + '|' + C.c1 + C.c2 + C.cg + '|' + (elite ? 1 : 0) + '|' + px;
+  const key = type + '|' + C.c1 + C.c2 + C.cg + '|' + (elite ? 1 : 0) + '|' + px + '|' + v;
   let A = cache.get(key);
   if (A) return A;
   const r = T.r, F = r * 3.8;
   const col = elite ? { c1: mixHex(C.c1, '#ffc23d', 0.45), c2: mixHex(C.c2, '#ffe27a', 0.35), cg: '#ffd23f' } : C;
   const S = new Sculptor(F, F, px, { ox: F / 2, oy: F / 2, depth: r * 0.55, bevel: 0.45, rim: elite ? '#ffe27a' : C.cg, rimK: 0.85, outline: 0.8, ao: 0.6, env: ['#b8d4ff', '#202430', '#ffffff'], amb: 0.36 });
-  d.build(S, col, r);
+  d.build(S, col, r, v);
   A = S.bake(); A.r = r; A.d = d;
   if (cache.size > 90) cache.clear();
   cache.set(key, A);
@@ -232,7 +325,7 @@ export function drawAlienSculpt(e, g) {
   const T = e.T, d = D[e.type];
   if (!d) return false;
   const k = (e.r / T.r) * e.scale;
-  const A = art(e.type, T, e, e.elite, view.rs * k * 1.05);
+  const A = art(e.type, T, e, e.elite, view.rs * k * 1.05, d.variants ? Math.floor(e.seed * 97) % d.variants : 0);
   if (!A) return false;
   const t = e.t, r = T.r;
   // regard vers le joueur (pour les yeux vivants)
