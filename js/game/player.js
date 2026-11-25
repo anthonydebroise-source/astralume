@@ -109,8 +109,8 @@ export class Player {
     this.magnetT = Math.max(0, this.magnetT - dt);
     // Traînée du réacteur
     const ec = this.super > 0 ? hslHex((this.t * 400) % 360, 100, 65) : this.col;
-    fx.dot(this.x + rand(-6, 6), this.y + 52, rand(-10, 10) - this.bank * 40, rand(160, 230), 0.26, this.super > 0 ? 13 : 9, ec, 0.9);
-    if (Math.random() < 0.5) fx.dot(this.x + rand(-3, 3), this.y + 50, 0, 180, 0.16, 6, '#ffffff', 0.9);
+    fx.dot(this.x + rand(-5, 5), this.y + 42, rand(-10, 10) - this.bank * 40, rand(160, 230), 0.26, this.super > 0 ? 13 : 9, ec, 0.9);
+    if (Math.random() < 0.5) fx.dot(this.x + rand(-3, 3), this.y + 40, 0, 180, 0.16, 6, '#ffffff', 0.9);
   }
 
   fire(dt) {
@@ -123,7 +123,7 @@ export class Player {
       this.wcd += W.interval(lvl);
       if (this.wcd < -0.2) this.wcd = 0;
       const v = this.vol;
-      v.x = this.x; v.y = this.y - 24; v.lvl = lvl; v.dmg = this.dmgMul; v.ghost = false; v.col = this.col;
+      v.x = this.x; v.y = this.y - 18; v.lvl = lvl; v.dmg = this.dmgMul; v.ghost = false; v.col = this.col;
       W.volley(g, v);
       if (this.id !== 'lance' && this.id !== 'phenix') sfx.shot(this.id === 'paon' ? 1 : this.id === 'diapason' ? 1 : 0);
       else if (this.id === 'phenix') sfx.shot(2);
@@ -215,7 +215,7 @@ export class Player {
     if (!this.alive) return;
     const g = glow(this.super > 0 ? hslHex((this.t * 300) % 360, 100, 60) : this.col, 32);
     ctx.globalAlpha = 0.55;
-    ctx.drawImage(g.c, this.x - 58, this.y - 54, 116, 116);
+    ctx.drawImage(g.c, this.x - 48, this.y - 44, 96, 96);
     if (this.super > 0) {
       baseT();
       ctx.globalAlpha = 0.13;
@@ -259,7 +259,7 @@ export class Player {
       const k = Math.min(1, this.inv);
       ctx.globalCompositeOperation = 'lighter';
       ctx.strokeStyle = rgba('#bff6ff', 0.25 + 0.3 * k * (0.5 + 0.5 * Math.sin(this.t * 14)));
-      ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(0, 0, 44, 0, TAU); ctx.stroke();
+      ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(0, 0, 37, 0, TAU); ctx.stroke();
       ctx.fillStyle = rgba('#bff6ff', 0.025 * k); ctx.fill();
       ctx.globalCompositeOperation = 'source-over';
       baseT();
@@ -268,10 +268,10 @@ export class Player {
       setT(this.x, this.y);
       const p = 1 + 0.05 * Math.sin(this.t * 6);
       ctx.strokeStyle = rgba('#38f2ff', 0.75); ctx.lineWidth = 1.6;
-      polyPath(ctx, 6, 46 * p, this.t * 0.6); ctx.stroke();
+      polyPath(ctx, 6, 38 * p, this.t * 0.6); ctx.stroke();
       ctx.fillStyle = rgba('#38f2ff', 0.07); ctx.fill();
-      if (this.shield > 1) { ctx.strokeStyle = rgba('#a0f8ff', 0.5); polyPath(ctx, 6, 51 * p, -this.t * 0.6); ctx.stroke(); }
-      if (this.shield > 2) { polyPath(ctx, 6, 56 * p, this.t); ctx.stroke(); }
+      if (this.shield > 1) { ctx.strokeStyle = rgba('#a0f8ff', 0.5); polyPath(ctx, 6, 42 * p, -this.t * 0.6); ctx.stroke(); }
+      if (this.shield > 2) { polyPath(ctx, 6, 46 * p, this.t); ctx.stroke(); }
       baseT();
     }
     if (S.settings.hitbox && this.entering <= 0) {

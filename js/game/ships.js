@@ -49,7 +49,7 @@ const W = {
       const dps = 32 * [1, 1.4, 1.8, 2.2, 2.6, 3.0][l - 1] * p.dmgMul * p.rateMul;
       const w = [6, 8, 10, 12, 14, 16][l - 1] * (p.super > 0 ? 1.5 : 1);
       p.beams.length = 0;
-      p.beams.push(g.fireBeam(p.x, p.y - 46, w, dps, l >= 3 ? 1 : 0, p.col));
+      p.beams.push(g.fireBeam(p.x, p.y - 38, w, dps, l >= 3 ? 1 : 0, p.col));
       if (l >= 4) for (const k of [-1, 1]) p.beams.push(g.fireBeam(p.x + k * 15, p.y - 2, 4, dps * 0.25, 0, p.col2));
       sfx.laser(true);
     },
@@ -102,7 +102,7 @@ const W = {
     },
     update(g, p, dt) {
       const l = p.wlvl, n = [2, 2, 3, 3, 4, 5][l - 1];
-      const R = [56, 58, 62, 66, 70, 76][l - 1];
+      const R = [48, 50, 54, 58, 62, 68][l - 1];
       p.bladeA = (p.bladeA || 0) + dt * 7;
       p.blades.length = 0;
       for (let i = 0; i < n; i++) {
@@ -161,11 +161,11 @@ const SP = {
     start(g, p, S) { flash(p.col, 0.4); },
     update(g, p, dt, S) {
       S.w = Math.min(70 + S.aw * 12, (S.w || 10) + dt * 400);
-      g.fireBeam(p.x, p.y - 46, S.w, 150 * S.P, 99, p.col, true);
+      g.fireBeam(p.x, p.y - 38, S.w, 150 * S.P, 99, p.col, true);
       g.cancelBullets({ x: p.x, y: p.y, rect: S.w * 0.7 }, true);
       addShake(0.02);
     },
-    draw(g, p, S) { g.drawBeam(p.x, p.y - 46, -60, S.w, p.col, 1); },
+    draw(g, p, S) { g.drawBeam(p.x, p.y - 38, -60, S.w, p.col, 1); },
   },
   essaim: {
     dur: 1.3,
