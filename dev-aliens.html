@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="css/style.css"></head>
+<body><div id="stage"><canvas id="game"></canvas><div id="ui"></div></div><div id="safe-probe"></div>
+<script type="module">
+import { initRenderer, ctx, view, baseT } from './js/engine/renderer.js';
+import { ENEMIES } from './js/game/enemies.js';
+import './js/game/enemies2.js';
+import { drawAlienSculpt, hasAlienArt } from './js/game/alienart.js';
+import { WORLDS } from './js/levels/worlds.js';
+initRenderer();
+const q = new URLSearchParams(location.search), W = WORLDS[+(q.get('w') || 0)], P = W.pal;
+const types = Object.keys(ENEMIES).filter(hasAlienArt);
+const ents = types.map((type, i) => ({ type, T: ENEMIES[type], r: ENEMIES[type].r, scale: 1.2, x: 60 + (i % 4) * 95, y: 80 + Math.floor(i / 4) * 95, t: i, seed: i, face: 0, alpha: 1, data: {}, c1: P.enemy, c2: P.enemy2, cg: P.eglow, elite: q.get('elite') === '1' && i % 3 === 0, flash: 0 }));
+const g = { player: { x: 200, y: 700 } };
+function loop(t) { baseT(); ctx.fillStyle = '#0a0620'; ctx.fillRect(0, 0, view.w, view.h); for (const e of ents) { e.t = t / 1000 + e.seed; drawAlienSculpt(e, g); } baseT(); requestAnimationFrame(loop); }
+requestAnimationFrame(loop); window.ready = true;
+</script></body></html>

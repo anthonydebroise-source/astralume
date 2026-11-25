@@ -25,6 +25,7 @@ import { SHIPS, DRONES, SHIP_BY_ID, DRONE_BY_ID } from '../economy/data.js';
 import { sfx } from '../audio/sfx.js';
 import { music } from '../audio/music.js';
 import { drawPart } from './art.js';
+import { drawAlienSculpt, hasAlienArt } from './alienart.js';
 
 // ---------- Sprites de projectiles ----------
 const BK = {
@@ -1038,6 +1039,7 @@ export class Game {
     for (const e of this.enemies) {
       if (e.dead || e.ground !== ground) continue;
       if (e.y < -80 || e.y > view.h + 80) continue;
+      if (e.alpha > 0.05 && hasAlienArt(e.type) && drawAlienSculpt(e, this)) continue;
       if (pro && e.alpha > 0.05) { drawEnemyPro(e); continue; }
       setRTS(e.x, e.y, e.face || 0, e.scale, e.scale);
       ctx.globalAlpha = e.alpha;
