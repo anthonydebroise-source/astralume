@@ -39,7 +39,7 @@ app.startLevel = (L, diff, boosts = {}) => {
   clearParticles();
   const def = buildLevel(L, diff);
   const drones = [];
-  for (let i = 0; i < (S.up.slot2 ? 2 : 1); i++) if (S.slots[i] && S.drones[S.slots[i]]) drones.push(S.slots[i]);
+  for (let i = 0; i < 2; i++) if (S.slots[i] && S.drones[S.slots[i]]) drones.push(S.slots[i]);
   const g = new Game(def, { ship: S.ship, drones, boosts });
   g.onEnd = (res) => endLevel(res);
   g.onDeath = (game) => continueMenu(game);

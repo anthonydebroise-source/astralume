@@ -11,8 +11,8 @@ export function defaults() {
     lv: {},                 // niveau -> [étoiles normal, difficile, cauchemar]
     ship: 'etincelle',
     ships: { etincelle: { own: 1, pw: 0, rt: 0, sp: 0, m: { dmg: 0, rate: 0, spec: 0 }, aw: 0 } },
-    drones: {},             // id -> { own:1, lvl:1, m:0 }
-    slots: [null, null],
+    drones: { sentinelle: { own: 1, lvl: 1, m: 0 } }, // id -> { own:1, lvl:1, m:0 }
+    slots: ['sentinelle', null],
     up: { hull: 0, shield: 0, magnet: 0, fortune: 0, nova: 0, arsenal: 0, luck: 0, crit: 0, charge: 0, slot2: 0 },
     gacha: { r: 0, e: 0, l: 0 },
     wheel: { day: -1, free: 1, paid: 0 },
@@ -61,6 +61,12 @@ export function load() {
   for (const id in S.ships) { const sh = S.ships[id]; sh.m = merge({ dmg: 0, rate: 0, spec: 0 }, sh.m || {}); }
   // Migration v2 : contrôle « relatif » par défaut (le vaisseau reste sous le doigt)
   if (!S.mig2) { S.mig2 = 1; S.settings.control = 'relative'; S.settings.offset = 1; }
+  // Migration v3 : un drone d'escorte offert et équipé (les drones volent à gauche et à droite)
+  if (!S.mig3) {
+    S.mig3 = 1;
+    if (!S.drones.sentinelle) S.drones.sentinelle = { own: 1, lvl: 1, m: 0 };
+    if (!S.slots.includes('sentinelle')) { const i = S.slots[0] ? (S.slots[1] ? -1 : 1) : 0; if (i >= 0) S.slots[i] = 'sentinelle'; }
+  }
   return S;
 }
 

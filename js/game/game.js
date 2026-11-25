@@ -9,7 +9,7 @@ import './enemies2.js';
 import { initPath, updatePath } from './paths.js';
 import { Player } from './player.js';
 import { Drone } from './drones.js';
-import { Boss } from './boss.js';
+import { Boss, prebakeBoss } from './boss.js';
 import { Background } from './background.js';
 import { Events } from './events.js';
 import { Constellation } from './combo.js';
@@ -38,6 +38,7 @@ function dangerOrb(color, r) {
     g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.fill();
     g.fillStyle = color; g.beginPath(); g.arc(0, 0, r, 0, TAU); g.fill();
     g.strokeStyle = 'rgba(25,0,18,0.95)'; g.lineWidth = r * 0.28; g.beginPath(); g.arc(0, 0, r * 0.98, 0, TAU); g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = Math.max(0.8, r * 0.14); g.beginPath(); g.arc(0, 0, r * 1.22, 0, TAU); g.stroke();
     gr = g.createRadialGradient(-r * 0.15, -r * 0.15, 0, 0, 0, r * 0.62);
     gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.7, '#ffffff'); gr.addColorStop(1, rgba(color, 1));
     g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r * 0.6, 0, TAU); g.fill();
@@ -79,6 +80,8 @@ const CLS_SIZE = { xs: 1, s: 1, m: 2, l: 3, g: 2, snake: 3 };
 // Rendu « pro » des aliens : contour sombre net + liseré lumineux, via un tampon hors écran
 const EB = makeCanvas(64, 64), EBg = EB.getContext('2d');
 const SB = makeCanvas(64, 64), SBg = SB.getContext('2d');
+const TB = makeCanvas(64, 64), TBg = TB.getContext('2d');
+let SHADE_ON = true;
 const OUT8 = [[1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5], [1.05, 1.05], [-1.05, 1.05], [1.05, -1.05], [-1.05, -1.05]];
 const OUT4 = [[1.3, 1.3], [-1.3, 1.3], [1.3, -1.3], [-1.3, -1.3]];
 let OUT = OUT8;
@@ -92,6 +95,24 @@ function drawEnemyPro(e) {
   EBg.globalAlpha = 1;
   e.T.draw(EBg, e, e.t);
   EBg.globalAlpha = 1;
+  EBg.setTransform(1, 0, 0, 1, 0, 0);
+  // modelé 3D : biseau d'ombre (bas-droite), biseau de lumière (haut-gauche), reflet vernis
+  const d = Math.max(1, Math.round(view.rs * 1.1 * Math.min(1.6, e.scale)));
+  if (SHADE_ON) {
+    if (TB.width < px) { TB.width = TB.height = px; }
+    for (const [dx, dy, col, al, op] of [[-d, -d, '#000010', 0.5, 'source-atop'], [d, d, '#ffffff', 0.28, 'lighter']]) {
+      TBg.setTransform(1, 0, 0, 1, 0, 0); TBg.globalCompositeOperation = 'copy'; TBg.drawImage(EB, 0, 0, px, px, 0, 0, px, px);
+      TBg.globalCompositeOperation = 'destination-out'; TBg.drawImage(EB, 0, 0, px, px, dx, dy, px, px);
+      TBg.globalCompositeOperation = 'source-in'; TBg.fillStyle = col; TBg.fillRect(0, 0, px, px);
+      EBg.globalCompositeOperation = op; EBg.globalAlpha = al; EBg.drawImage(TB, 0, 0, px, px, 0, 0, px, px);
+    }
+    EBg.globalAlpha = 1;
+  }
+  const rr = r * view.rs;
+  const gl = EBg.createRadialGradient(px / 2 - rr * 0.38, px / 2 - rr * 0.42, 0, px / 2 - rr * 0.38, px / 2 - rr * 0.42, rr * 0.55);
+  gl.addColorStop(0, 'rgba(255,255,255,0.42)'); gl.addColorStop(0.5, 'rgba(255,255,255,0.1)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
+  EBg.globalCompositeOperation = 'source-atop'; EBg.fillStyle = gl; EBg.fillRect(0, 0, px, px);
+  EBg.globalCompositeOperation = 'source-over';
   SBg.setTransform(1, 0, 0, 1, 0, 0);
   SBg.globalCompositeOperation = 'copy'; SBg.drawImage(EB, 0, 0, px, px, 0, 0, px, px);
   SBg.globalCompositeOperation = 'source-in'; SBg.fillStyle = '#04020c'; SBg.fillRect(0, 0, px, px);
@@ -134,6 +155,8 @@ export class Game {
     this.goalKills = 0; this.bossT = 0;
     this.wind = def.trait === 'vent' ? (Math.random() < 0.5 ? -1 : 1) * 55 : 0;
     clearParticles();
+    // pré-rendu des pièces du boss (évite un à-coup à son arrivée)
+    for (const ev of this.tl) if (ev.kind === 'boss') prebakeBoss(this, ev.arch, ev.mini);
     music.play(def.music, true);
     music.setIntensity(0.5);
   }
@@ -243,7 +266,7 @@ export class Game {
       let d = dmg;
       if (!silent && Math.random() < this.player.crit) d *= 2;
       const ok = t.boss.hit(t, d, x, y);
-      if (ok && !silent && Math.random() < 0.5) hitSpark(x, y, this.pal.eglow);
+      if (ok && !silent && Math.random() < 0.5) hitSpark(x, y, '#ffd27a');
       if (ok) this.bossDamageSound();
       return ok;
     }
@@ -448,8 +471,8 @@ export class Game {
     this.hazards.push({ kind: 'laser', x, y, ang, warm, dur, w, color, t: -delay, fired: false });
     sfx.laserCharge();
   }
-  spawnSalvage(x, y, r, col) {
-    this.debris.push({ x, y, vx: rand(-50, 50), vy: rand(-90, -40), rot: rand(TAU), vr: rand(-3, 3), r: Math.min(26, r), col, t: 0 });
+  spawnSalvage(x, y, r, col, art) {
+    this.debris.push({ x, y, vx: rand(-50, 50), vy: rand(-90, -40), rot: rand(TAU), vr: rand(-3, 3), r: Math.min(26, r), col, t: 0, spr: art && art.chunks ? art.chunks[(Math.random() * art.chunks.length) | 0] : null });
   }
 
   // ================= Directeur de niveau =================
@@ -775,7 +798,7 @@ export class Game {
       const d = this.debris[i];
       d.t += dt; d.vy += 110 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.rot += d.vr * dt;
       if (d.x < 20 || d.x > view.w - 20) d.vx *= -1;
-      if (Math.random() < 0.3) fx.dot(d.x + rand(-d.r, d.r) * 0.5, d.y, 0, -20, 0.4, 5, d.col.cg);
+      if (Math.random() < 0.3) fx.spark(d.x + rand(-d.r, d.r) * 0.5, d.y, rand(-15, 15), -60, 0.35, 5, '#ffbe7a', 1);
       if (p.alive && dist2(d.x, d.y, p.x, p.y) < (d.r + 18) ** 2) {
         this.debris.splice(i, 1);
         const n = 2 + (this.boss ? this.boss.tier : 0) + this.diff * 2;
@@ -876,6 +899,7 @@ export class Game {
     }
     const pro = view.adapt >= 0.7 && view.quality !== 'low';
     OUT = this.enemies.length > 16 ? OUT4 : OUT8;
+    SHADE_ON = this.enemies.length <= 18 && view.adapt > 0.7;
     for (const e of this.enemies) {
       if (e.dead || e.ground !== ground) continue;
       if (e.y < -80 || e.y > view.h + 80) continue;
@@ -1017,8 +1041,11 @@ export class Game {
     baseT();
     for (const d of this.debris) {
       setRT(d.x, d.y, d.rot);
-      ctx.fillStyle = d.col.c1; ctx.strokeStyle = d.col.cg; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(-d.r, -d.r * 0.5); ctx.lineTo(d.r * 0.4, -d.r); ctx.lineTo(d.r, d.r * 0.3); ctx.lineTo(-d.r * 0.2, d.r); ctx.closePath(); ctx.fill(); ctx.stroke();
+      if (d.spr) { const k = d.r / 14; ctx.drawImage(d.spr.cv, -d.spr.ox * k, -d.spr.oy * k, d.spr.w * k, d.spr.h * k); }
+      else {
+        ctx.fillStyle = d.col.c1; ctx.strokeStyle = d.col.cg; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-d.r, -d.r * 0.5); ctx.lineTo(d.r * 0.4, -d.r); ctx.lineTo(d.r, d.r * 0.3); ctx.lineTo(-d.r * 0.2, d.r); ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
       baseT();
       const p = 0.5 + 0.5 * Math.sin(this.t * 10);
       ctx.strokeStyle = rgba('#ffbe7a', 0.5 + 0.5 * p); ctx.lineWidth = 2;

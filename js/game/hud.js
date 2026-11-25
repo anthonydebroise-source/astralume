@@ -1,7 +1,7 @@
 // Interface en jeu (dessinée sur le canvas) : cœurs, pièces, progression, jauge spéciale rythmée, boss, messages
-import { TAU, clamp, rgba, fmt, hslHex, ease } from '../engine/math.js';
+import { TAU, clamp, rgba, fmt, hslHex, ease, lighten, darken } from '../engine/math.js';
 import { view, ctx, baseT, setT } from '../engine/renderer.js';
-import { sprite } from '../engine/sprites.js';
+import { sprite, glow } from '../engine/sprites.js';
 import { drawHeart, drawCoin, drawCrystal, drawGem, drawPart, drawShieldIco, polyPath, starPath } from './art.js';
 import { music } from '../audio/music.js';
 import { CHALLENGES, TRAITS } from '../levels/generator.js';
@@ -44,6 +44,46 @@ export class Hud {
     if (this.banner) { this.banner.t += dt; if (this.banner.t > this.banner.dur) this.banner = null; }
     this.warn = Math.max(0, this.warn - dt);
   }
+  // Jauge de puissance (niveau d'arme) : 6 chevrons lumineux, éclat à chaque gain
+  drawPower(p, top) {
+    const lv = p.effLvl ? p.effLvl() : p.wlvl;
+    if (this.lastLv === undefined) this.lastLv = lv;
+    if (lv > this.lastLv) { this.pFlash = 1; this.pFlashI = lv - 1; }
+    this.lastLv = lv;
+    this.pFlash = Math.max(0, (this.pFlash || 0) - 0.025);
+    const x0 = 50, y0 = top + 22, sw = 12.5, sh = 10.5, gap = 2.2, sk = 3.5;
+    const COLS = ['#ffe94a', '#ffc23d', '#ff9d3c', '#ff6a4f', '#ff3f8e', '#d65cff'];
+    const pul = 1 + this.pFlash * 0.12;
+    ctx.save(); ctx.translate(x0, y0 + sh / 2); ctx.scale(pul, pul); ctx.translate(-x0, -(y0 + sh / 2));
+    // socle
+    ctx.fillStyle = 'rgba(8,4,24,0.72)';
+    ctx.beginPath(); ctx.moveTo(x0 - 4 + sk, y0 - 3); ctx.lineTo(x0 + 6 * (sw + gap) + 30 + sk, y0 - 3); ctx.lineTo(x0 + 6 * (sw + gap) + 30, y0 + sh + 3); ctx.lineTo(x0 - 4, y0 + sh + 3); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,190,90,0.45)'; ctx.lineWidth = 1; ctx.stroke();
+    for (let i = 0; i < 6; i++) {
+      const x = x0 + i * (sw + gap);
+      ctx.beginPath(); ctx.moveTo(x + sk, y0); ctx.lineTo(x + sw + sk, y0); ctx.lineTo(x + sw, y0 + sh); ctx.lineTo(x, y0 + sh); ctx.closePath();
+      if (i < lv) {
+        const over = p.super > 0 && i >= p.wlvl;
+        const col = over ? hslHex((this.t * 300 + i * 50) % 360, 100, 62) : COLS[i];
+        const gr = ctx.createLinearGradient(0, y0, 0, y0 + sh); gr.addColorStop(0, lighten(col, 0.55)); gr.addColorStop(0.5, col); gr.addColorStop(1, darken(col, 0.35));
+        ctx.fillStyle = gr; ctx.fill();
+        ctx.strokeStyle = lighten(col, 0.7); ctx.lineWidth = 0.8; ctx.stroke();
+        if (this.pFlash > 0 && i === this.pFlashI) { ctx.fillStyle = `rgba(255,255,255,${this.pFlash})`; ctx.fill(); }
+      } else { ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 0.8; ctx.stroke(); }
+    }
+    // halo des segments allumés
+    ctx.globalCompositeOperation = 'lighter';
+    const gl = glow(lv >= 6 ? '#ff7af0' : '#ffb347', 16);
+    ctx.globalAlpha = 0.35 + 0.25 * Math.sin(this.t * 6) * (lv >= 6 ? 1 : 0.3) + this.pFlash * 0.6;
+    const wl = lv * (sw + gap);
+    ctx.drawImage(gl.c, x0 - 8, y0 - 10, wl + 16, sh + 20);
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    const lx = x0 + 6 * (sw + gap) + 15;
+    if (lv >= 6) txt('MAX', lx + 2, y0 + sh / 2 + 0.5, 10.5, hslHex((this.t * 200) % 360, 100, 72), 'center', 900);
+    else txt('NV ' + lv, lx + 2, y0 + sh / 2 + 0.5, 10.5, '#ffe9a8', 'center', 900);
+    ctx.restore();
+    if (this.pFlash > 0.3) { ctx.globalCompositeOperation = 'lighter'; const g2 = glow('#ffffff', 16); const fx = x0 + this.pFlashI * (sw + gap) + sw / 2 + 2; ctx.globalAlpha = this.pFlash; ctx.drawImage(g2.c, fx - 26, y0 + sh / 2 - 26, 52, 52); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
+  }
   draw() {
     const g = this.g, p = g.player, W = view.w, top = this.top;
     baseT();
@@ -64,8 +104,7 @@ export class Hud {
     const ss = ico('shield', 6.5, (c, r) => drawShieldIco(c, r));
     for (let i = 0; i < p.shield; i++) { ctx.drawImage(ss.c, x - ss.hw, top + 10 - ss.hh, ss.w, ss.h); x += 15; }
     // Niveau d'arme
-    const lv = p.effLvl ? p.effLvl() : p.wlvl;
-    for (let i = 0; i < 6; i++) { ctx.fillStyle = i < lv ? (p.super > 0 && i >= p.wlvl ? hslHex((this.t * 300 + i * 50) % 360, 100, 60) : '#ff9d3c') : 'rgba(255,255,255,0.15)'; ctx.fillRect(56 + i * 9, top + 24, 7, 4); }
+    this.drawPower(p, top);
     // Progression
     const px = W / 2 - 60, pw = 120, py = top + 4;
     const prog = g.progress();

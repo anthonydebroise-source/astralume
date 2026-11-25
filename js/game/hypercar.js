@@ -3,6 +3,9 @@
 // résolution (une fois), puis animée chaque image (réacteurs, LED, reflet, effets).
 import { TAU, rgba, lighten, darken, clamp, hslHex } from '../engine/math.js';
 import { makeCanvas } from '../engine/sprites.js';
+import { sculptShip, SFW, SFH, SOX, SOY } from './shipsculpt.js';
+import { S as SAVE } from '../economy/save.js';
+import { shipSkin } from './skins.js';
 
 const FW = 56, FH = 66, OX = 28, OY = 32; // cadre du dessin (unités) : x ∈ [-28, 28], y ∈ [-32, 34]
 const CARBON = '#15151d';
@@ -386,6 +389,7 @@ function bake(id, px) {
 // Reflet mobile sur la peinture (sur un tampon, découpé par la silhouette)
 const tmp = makeCanvas(8, 8), tg = tmp.getContext('2d');
 function sheen(c, b, t, bank) {
+  const fx = b.fx ?? OX, fy = b.fy ?? OY, fw = b.fw ?? FW, fh = b.fh ?? FH;
   if (tmp.width !== b.cv.width || tmp.height !== b.cv.height) { tmp.width = b.cv.width; tmp.height = b.cv.height; }
   tg.setTransform(1, 0, 0, 1, 0, 0);
   tg.globalCompositeOperation = 'copy'; tg.drawImage(b.mask, 0, 0);
@@ -397,7 +401,7 @@ function sheen(c, b, t, bank) {
   gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.45, 'rgba(255,255,255,0.0)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.55)'); gr.addColorStop(0.56, 'rgba(255,255,255,0.08)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
   tg.fillStyle = gr; tg.fillRect(0, 0, W, H);
   c.globalCompositeOperation = 'lighter';
-  c.drawImage(tmp, -OX, -OY, FW, FH);
+  c.drawImage(tmp, -fx, -fy, fw, fh);
   c.globalCompositeOperation = 'source-over';
 }
 
@@ -426,12 +430,41 @@ function leds(c, S, t) {
   c.globalCompositeOperation = 'source-over';
 }
 
-export function drawHypercar(c, id, t, bank = 0) {
-  const S = SPECS[id];
+// évolution (0 à 3) et peinture choisie du vaisseau
+export function shipLook(id, o) {
+  const st = SAVE.ships && SAVE.ships[id];
+  const tier = o && o.tier !== undefined ? o.tier : st ? Math.min(3, Math.floor((st.ev || 0) / 2)) : 0;
+  const skin = o && o.skin !== undefined ? o.skin : st ? st.skin || 0 : 0;
+  return { tier, skin };
+}
+const specCache = new Map();
+function specFor(id, skin) {
+  const base = SPECS[id];
+  if (!skin) return base;
+  const k = id + '|' + skin;
+  let sp = specCache.get(k);
+  if (!sp) { const sk = shipSkin(id, skin); sp = Object.assign({}, base, sk ? { paint: sk.paint, accent: sk.accent || base.accent, led: sk.led || base.led, tail: sk.tail || base.tail } : {}); specCache.set(k, sp); }
+  return sp;
+}
+export function drawHypercar(c, id, t, bank = 0, o) {
+  const look = shipLook(id, o);
+  const S = specFor(id, look.skin);
   if (!S) return;
   let px = 4;
   try { const m = c.getTransform(); px = Math.hypot(m.a, m.b); } catch (_) { /* */ }
   px = clamp(Math.ceil(px * 1.05), 2, 14);
+  const sb = sculptShip(id, S, px, look.tier);
+  if (sb) {
+    sb.fx = SOX; sb.fy = SOY; sb.fw = SFW; sb.fh = SFH;
+    engines(c, S, t);
+    c.drawImage(sb.cv, -SOX, -SOY, SFW, SFH);
+    c.globalCompositeOperation = 'lighter';
+    if (sb.bloom) { c.globalAlpha *= 0.75 + 0.25 * Math.sin(t * 4); c.drawImage(sb.bloom, -SOX, -SOY, SFW, SFH); c.globalAlpha = 1; }
+    c.globalCompositeOperation = 'source-over';
+    sheen(c, sb, t, bank);
+    if (S.live) S.live(c, t, S);
+    return;
+  }
   const b = bake(id, px);
   engines(c, S, t);
   c.drawImage(b.cv, -OX, -OY, FW, FH);

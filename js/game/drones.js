@@ -5,6 +5,89 @@ import { fx } from '../engine/particles.js';
 import { glow } from '../engine/sprites.js';
 import { polyPath } from './art.js';
 import { DRONE_BY_ID } from '../economy/data.js';
+import { Sculptor } from '../engine/sculpt.js';
+
+// ---------- Drones sculptés (petits chasseurs d'escorte) ----------
+const half = (pts) => (g) => { g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]); for (let i = pts.length - 2; i >= 0; i -= 2) g.lineTo(-pts[i], pts[i + 1]); g.closePath(); };
+const circ = (x, y, r) => (g) => g.arc(x, y, r, 0, TAU);
+const vg = (y0, y1, a, b) => (g) => { const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, a); gr.addColorStop(1, b); return gr; };
+const STEEL = '#c3cad8', GOLD = '#ecb44e', CARB = '#1c1e28';
+function gem(S, x, y, r, col) {
+  S.paint(circ(x, y, r * 1.35), { c: STEEL, mat: 'chrome', h: 0.1, hm: 'add' });
+  S.paint(circ(x, y, r), { c: (g) => { const gr = g.createRadialGradient(x - r * 0.3, y - r * 0.3, 0, x, y, r); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.4, lighten(col, 0.4)); gr.addColorStop(1, darken(col, 0.3)); return gr; }, mat: 'glass', h: (k) => k.hDome(x, y, r, 0.95, 0.6) });
+  S.light(circ(x, y, r * 0.7), rgba(col, 0.8), r);
+}
+const DART = {
+  sentinelle(S, c) {
+    S.paint(half([0, -11, 3, -6, 9, 2, 10, 7, 4, 6, 2.5, 9]), { c: vg(-11, 9, lighten(c, 0.15), darken(c, 0.5)), mat: 'gloss', h: (k) => k.hCyl(-10, 0, 10, 0, 0.7, 0.2) });
+    for (const s of [1, -1]) { S.paint((g) => g.rect(s * 6.5 - 0.8, -6, 1.6, 8), { c: STEEL, mat: 'chrome', h: 0.6 }); S.light((g) => g.ellipse(s * 6.5, -6, 0.6, 0.5, 0, 0, TAU), '#ffffff', 0.5); }
+    S.stroke(half([0, -11, 3, -6, 9, 2]), { c: GOLD, mat: 'gold', w: 0.6, h: 0.03 });
+    gem(S, 0, 0, 2.6, c);
+  },
+  glaneur(S, c) {
+    for (const s of [1, -1]) S.paint((g) => { g.moveTo(s * 3, -4); g.quadraticCurveTo(s * 12, -8, s * 9, 4); g.lineTo(s * 7, 3); g.quadraticCurveTo(s * 9, -4, s * 3, -1); g.closePath(); }, { c: GOLD, mat: 'gold', h: 0.45 });
+    S.paint(circ(0, 1, 7), { c: vg(-6, 8, lighten(c, 0.2), darken(c, 0.5)), mat: 'gloss', h: (k) => k.hDome(0, 1, 7, 0.9, 0.3) });
+    S.stroke(circ(0, 1, 5), { c: STEEL, mat: 'chrome', w: 1, h: 0.05 });
+    gem(S, 0, 1, 2.4, '#fff3b0');
+  },
+  egide(S, c) {
+    const hex = (R) => (g) => { for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU + Math.PI / 6; if (i) g.lineTo(Math.cos(a) * R, Math.sin(a) * R); else g.moveTo(Math.cos(a) * R, Math.sin(a) * R); } g.closePath(); };
+    S.paint(hex(9), { c: GOLD, mat: 'gold', h: (k) => k.hDome(0, 0, 10, 0.6, 0.3) });
+    S.paint(hex(7.4), { c: vg(-7, 7, lighten(c, 0.2), darken(c, 0.5)), mat: 'gloss', h: (k) => k.hDome(0, 0, 8, 0.8, 0.4) });
+    S.stroke(hex(7.4), { emi: rgba(c, 0.9), ew: 0.6, w: 0.5 });
+    gem(S, 0, 0, 3, c);
+  },
+  foreur(S, c) {
+    S.paint((g) => { g.moveTo(0, -12); g.lineTo(6, 4); g.lineTo(-6, 4); g.closePath(); }, { c: vg(-12, 4, STEEL, '#5a6070'), mat: 'chrome', h: (k) => k.hCyl(-6, 0, 6, 0, 0.8, 0.2) });
+    for (let k = 0; k < 4; k++) S.stroke((g) => { g.moveTo(-5 + k * 1.5, 2 - k * 3.6); g.lineTo(3 + k * 0.3, 4 - k * 3.6 - 3); }, { c: '#3a3e4a', w: 0.6, h: -0.05 });
+    S.paint((g) => g.ellipse(0, 6, 7, 4, 0, 0, TAU), { c: vg(2, 10, lighten(c, 0.2), darken(c, 0.5)), mat: 'gloss', h: 0.5 });
+    gem(S, 0, 6, 1.8, '#ffd27a');
+  },
+  echo(S, c) {
+    S.paint(half([0, -11, 2, -5, 9, 5, 2, 3, 0, 6]), { c: rgba(lighten(c, 0.2), 0.75), mat: 'glass', h: 0.5 });
+    S.stroke(half([0, -11, 2, -5, 9, 5, 2, 3, 0, 6]), { c: '#ffffff', mat: 'chrome', w: 0.6, h: 0.04, emi: rgba(c, 0.6), ew: 0.6 });
+    gem(S, 0, -1, 1.8, c);
+  },
+  lumen(S, c) {
+    for (let k = 0; k < 4; k++) { const a = (k / 4) * TAU + Math.PI / 4; S.paint((g) => { g.moveTo(Math.cos(a - 0.25) * 6, Math.sin(a - 0.25) * 6); g.lineTo(Math.cos(a) * 11, Math.sin(a) * 11); g.lineTo(Math.cos(a + 0.25) * 6, Math.sin(a + 0.25) * 6); g.closePath(); }, { c: GOLD, mat: 'gold', h: 0.4 }); }
+    S.paint(circ(0, 0, 6.5), { c: STEEL, mat: 'chrome', h: (k) => k.hDome(0, 0, 7, 0.7, 0.3) });
+    gem(S, 0, 0, 4.2, c);
+  },
+  prisme(S, c) {
+    S.paint((g) => { g.moveTo(0, -11); g.lineTo(9, 6); g.lineTo(-9, 6); g.closePath(); }, { c: vg(-11, 6, lighten(c, 0.5), darken(c, 0.3)), mat: 'glass', h: (k) => k.hDome(0, 0, 10, 0.9, 0.2) });
+    S.stroke((g) => { g.moveTo(0, -11); g.lineTo(9, 6); g.lineTo(-9, 6); g.closePath(); }, { c: STEEL, mat: 'chrome', w: 0.9, h: 0.05 });
+    S.stroke((g) => { g.moveTo(0, -11); g.lineTo(0, 6); }, { c: '#ffffff', w: 0.4, h: 0.03 });
+    S.light(circ(0, 1, 2.5), '#ffffff', 2);
+  },
+};
+const dcache = new Map();
+export function droneArt(id, px) {
+  px = Math.max(2, Math.min(12, Math.ceil(px)));
+  const k = id + '|' + px;
+  let s = dcache.get(k);
+  if (s) return s;
+  const col = DRONE_BY_ID[id].color;
+  const S = new Sculptor(30, 30, px, { ox: 15, oy: 15, depth: 7, bevel: 0.45, rim: lighten(col, 0.3), outline: 0.7, ao: 0.6, env: ['#b8d4ff', '#202430', '#ffffff'] });
+  DART[id](S, col);
+  s = S.bake();
+  if (dcache.size > 40) dcache.clear();
+  dcache.set(k, s);
+  return s;
+}
+function drawDroneArt(c, id, t, sc = 1) {
+  let px = 4;
+  try { const m = c.getTransform(); px = Math.hypot(m.a, m.b) * sc; } catch (_) { /* */ }
+  const s = droneArt(id, px * 1.05);
+  const col = DRONE_BY_ID[id].color;
+  c.save(); c.scale(sc, sc);
+  if (id === 'egide' || id === 'lumen') c.rotate(t * (id === 'egide' ? 1.2 : 0.6));
+  c.drawImage(s.cv, -s.ox, -s.oy, s.w, s.h);
+  c.globalCompositeOperation = 'lighter';
+  if (s.bloom) { c.globalAlpha *= 0.7 + 0.3 * Math.sin(t * 5); c.drawImage(s.bloom, -s.ox, -s.oy, s.w, s.h); c.globalAlpha = 1; }
+  c.globalCompositeOperation = 'source-over';
+  c.restore();
+  void col;
+}
 
 const DRAW = {
   sentinelle(c, t, col) { polyPath(c, 3, 8, -Math.PI / 2); c.fillStyle = darken(col, 0.5); c.fill(); c.strokeStyle = col; c.lineWidth = 1.5; c.stroke(); c.fillStyle = '#fff'; c.beginPath(); c.arc(0, 0, 2.2, 0, TAU); c.fill(); },
@@ -15,7 +98,7 @@ const DRAW = {
   lumen(c, t, col) { const p = 1 + 0.15 * Math.sin(t * 6); c.beginPath(); c.arc(0, 0, 6 * p, 0, TAU); c.fillStyle = '#fffde0'; c.fill(); c.strokeStyle = col; c.lineWidth = 2; for (let i = 0; i < 4; i++) { const a = t * 2 + i * 1.57; c.beginPath(); c.moveTo(Math.cos(a) * 8, Math.sin(a) * 8); c.lineTo(Math.cos(a) * 12, Math.sin(a) * 12); c.stroke(); } },
   prisme(c, t, col) { c.save(); c.rotate(t); c.beginPath(); c.moveTo(0, -9); c.lineTo(8, 5); c.lineTo(-8, 5); c.closePath(); c.fillStyle = rgba(col, 0.7); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 1.2; c.stroke(); c.restore(); },
 };
-export function drawDroneIcon(c, id, t) { const d = DRONE_BY_ID[id]; DRAW[id](c, t, d.color); }
+export function drawDroneIcon(c, id, t) { drawDroneArt(c, id, t, 1.1); }
 
 export class Drone {
   constructor(g, id, slot, power) {
@@ -25,7 +108,7 @@ export class Drone {
     this.x = p.x; this.y = p.y + 20; this.t = rand(10); this.cd = 0.5;
     this.state = 'idle'; this.charges = 3; this.a = slot * Math.PI;
   }
-  home() { const p = this.g.player; return [p.x + (this.slot ? 30 : -30), p.y + 16 + Math.sin(this.t * 2) * 3]; }
+  home() { const p = this.g.player; return [p.x + (this.slot ? 47 : -47), p.y + 12 + Math.sin(this.t * 2 + this.slot) * 3]; }
   update(dt) {
     const g = this.g, p = g.player;
     this.t += dt;
@@ -116,12 +199,22 @@ export class Drone {
     }
     const s = glow(this.col, 16);
     ctx.globalCompositeOperation = 'lighter'; baseT();
-    ctx.globalAlpha = 0.6; ctx.drawImage(s.c, this.x - 16, this.y - 16, 32, 32); ctx.globalAlpha = 1;
+    ctx.globalAlpha = 0.55; ctx.drawImage(s.c, this.x - 22, this.y - 22, 44, 44);
+    // réacteur
+    if (this.id !== 'egide' && this.id !== 'lumen') {
+      const f = 0.8 + 0.2 * Math.sin(this.t * 40), L = 12 * f;
+      const gr = ctx.createLinearGradient(0, this.y + 8, 0, this.y + 8 + L);
+      gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.3, rgba(this.col, 0.8)); gr.addColorStop(1, rgba(this.col, 0));
+      ctx.fillStyle = gr; ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.ellipse(this.x, this.y + 8 + L * 0.45, 2.4, L * 0.55, 0, 0, TAU); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     setT(this.x, this.y);
-    DRAW[this.id](ctx, this.t, this.col);
+    if (this.id === 'echo') ctx.globalAlpha = 0.75;
+    drawDroneArt(ctx, this.id, this.t, 1.25);
     ctx.globalAlpha = 1;
-    if (this.id === 'egide') { for (let i = 0; i < this.charges; i++) { ctx.fillStyle = this.col; ctx.beginPath(); ctx.arc(-6 + i * 4, 13, 1.4, 0, TAU); ctx.fill(); } }
+    if (this.id === 'egide') { for (let i = 0; i < this.charges; i++) { ctx.fillStyle = this.col; ctx.beginPath(); ctx.arc(-6 + i * 4, 15, 1.5, 0, TAU); ctx.fill(); } }
     baseT();
   }
 }

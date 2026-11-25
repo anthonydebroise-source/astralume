@@ -83,7 +83,7 @@ export function shipStats(id) {
 // ---------- Drones ----------
 export const DRONE_MAX = 15;
 export const ownsDrone = (id) => !!(S.drones[id] && S.drones[id].own);
-export function slotCount() { return S.up.slot2 ? 2 : 1; }
+export function slotCount() { return 2; }
 export function canUnlockDrone(id) { return !ownsDrone(id) && S.maxLevel >= DRONE_BY_ID[id].req; }
 export function unlockDrone(id, free = false) {
   if (ownsDrone(id)) return false;

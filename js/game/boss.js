@@ -2,11 +2,13 @@
 import { TAU, rand, angTo, clamp, rgba, lighten, darken, ease, dist2 } from '../engine/math.js';
 import { view, ctx, setT, baseT, addShake, flash, hitstop } from '../engine/renderer.js';
 import { fx } from '../engine/particles.js';
-import { glow } from '../engine/sprites.js';
+import { glow, sprite } from '../engine/sprites.js';
 import { blobPath, starPath, polyPath, tentacle, eye, bodyGrad, heartPath } from './art.js';
 import { aimed, ring, fan, shoot, flower } from './patterns.js';
 import { explode, bossBoom, deflect } from './fx.js';
 import { sfx } from '../audio/sfx.js';
+import { BOSS_ART, buildBossArt, drawWound, drawReactor } from './bossart.js';
+import './bossart2.js';
 
 const PART_NAMES = { cannon: 'Canon', arm: 'Bras', shell: 'Carapace', pod: 'Couveuse', segment: 'Anneau', core: 'Noyau' };
 const WOUND = { cannon: 'geyser', arm: 'acidRain', shell: 'organSpiral', pod: 'sporeMines', segment: 'segBurst' };
@@ -416,6 +418,11 @@ const ARCH = {
 };
 ATT.eyeLaserCore = (b, g, s, l) => { const a = angTo(b.cx(), b.cy(), g.player.x, g.player.y); g.addLaser(b.cx(), b.cy(), a, 0.85, 1.1, 24, g.pal.bullet); if (l > 1.4) g.later(1.2, () => !b.dead && g.addLaser(b.cx(), b.cy(), angTo(b.cx(), b.cy(), g.player.x, g.player.y), 0.7, 0.9, 20, g.pal.bullet)); };
 
+export function prebakeBoss(g, arch, mini) {
+  if (!BOSS_ART[arch]) return;
+  try { buildBossArt(arch, { c1: g.pal.enemy, c2: g.pal.enemy2, cg: g.pal.eglow, dk: g.pal.edark }, clamp(view.rs * (mini ? 0.7 : 1), 1, 3)); } catch (e) { console.error(e); }
+}
+
 export class Boss {
   constructor(g, arch, o) {
     this.g = g;
@@ -431,6 +438,8 @@ export class Boss {
     this.coreAtt = ['spiral3'];
     this.coreCd = 3; this.coreIdx = 0; this.coreOpen = false; this.coreNeeds = 0.5;
     this.A.build(this);
+    this.AA = BOSS_ART[this.archId] || null;
+    if (this.AA) this.art = buildBossArt(this.archId, this.col, clamp(view.rs * this.sc, 1, 3));
     const hs = g.D.hp * (this.mini ? 0.5 : 1) * (1 + this.tier * 0.15) * (g.def.L > 300 ? 1.2 : 1);
     for (const p of this.parts) { p.hp = p.max = p.max * hs; p.boss = this; if (p.rate) p.rate *= 1 - this.tier * 0.07; }
     if (this.mini) this.parts = this.parts.filter((p, i) => p.kind !== 'arm' || i % 2 === 0 || this.archId === 'worm');
@@ -562,7 +571,7 @@ export class Boss {
     explode(p.x, p.y, 4, this.col.cg, this.col.c2);
     flash(this.col.cg, 0.35); hitstop(0.06);
     sfx.partBreak();
-    g.spawnSalvage(p.x, p.y, Math.max(16, p.r), this.col);
+    g.spawnSalvage(p.x, p.y, Math.max(16, p.r), this.col, this.art);
     const w = WOUND[p.kind];
     this.wounds.push({ ox: p.ox, oy: p.oy, att: w, cd: 1.2, r: p.r, part: p });
     g.msg({ cannon: 'Canon détruit !', arm: 'Bras arraché !', shell: 'Carapace brisée !', pod: 'Couveuse crevée !', segment: 'Anneau détruit !' }[p.kind] || 'Partie détruite !', this.col.cg, 22);
@@ -574,6 +583,7 @@ export class Boss {
     this.updateCoreOpen();
   }
   wound(c, p, t) {
+    if (this.art) { drawWound(c, this, p, t); return; }
     const pul = 0.6 + 0.4 * Math.sin(t * 6 + p.ox);
     c.fillStyle = rgba(darken(this.col.c1, 0.6), 0.9);
     c.beginPath(); c.arc(p.ox, p.oy, p.r * 0.75, 0, TAU); c.fill();
@@ -594,12 +604,19 @@ export class Boss {
   draw() {
     const c = ctx, t = this.t;
     setT(this.x, this.y, this.sc);
-    this.A.draw(c, this, t);
-    for (const p of this.parts) if (p.kind === 'shell' && this.A.drawShell) { if (p.alive) { c.save(); c.translate(p.ox, p.oy); this.A.drawShell(c, this, p, t); c.restore(); } else this.wound(c, p, t); }
+    const AA = this.AA;
+    if (AA) {
+      AA.draw(c, this, t);
+      if (AA.drawShell) for (const p of this.parts) if (p.kind === 'shell') { if (p.alive) { c.save(); c.translate(p.ox, p.oy); AA.drawShell(c, this, p, t); c.restore(); } else drawWound(c, this, p, t); }
+    } else {
+      this.A.draw(c, this, t);
+      for (const p of this.parts) if (p.kind === 'shell' && this.A.drawShell) { if (p.alive) { c.save(); c.translate(p.ox, p.oy); this.A.drawShell(c, this, p, t); c.restore(); } else this.wound(c, p, t); }
+    }
     const core = this.core;
     if (core.alive) {
       c.save(); c.translate(core.ox, core.oy);
-      if (this.A.drawCore) this.A.drawCore(c, this, core, t);
+      if (AA) { if (AA.drawCore) AA.drawCore(c, this, core, t); else drawReactor(c, this, core, t); }
+      else if (this.A.drawCore) this.A.drawCore(c, this, core, t);
       else {
         const pul = 1 + 0.12 * Math.sin(t * 6) + this.beat * 0.1;
         c.beginPath(); c.arc(0, 0, core.r * pul, 0, TAU);
@@ -609,9 +626,16 @@ export class Boss {
         for (let i = 0; i < 3; i++) { c.beginPath(); c.ellipse(0, 0, core.r * (1.2 + i * 0.2), core.r * 0.4, t * (1 + i * 0.5) + i, 0, TAU); c.stroke(); }
       }
       if (!this.coreOpen) {
-        c.strokeStyle = rgba('#9fe8ff', 0.5 + 0.25 * Math.sin(t * 5)); c.lineWidth = 2;
-        polyPath(c, 6, core.r * 1.45, t * 0.5); c.stroke();
-        c.fillStyle = rgba('#9fe8ff', 0.08); c.fill();
+        // bulle d'énergie protectrice (le noyau n'est pas encore vulnérable)
+        const R = core.r * 1.5, pv = 0.5 + 0.25 * Math.sin(t * 5);
+        c.globalCompositeOperation = 'lighter';
+        const bub = sprite('coreBubble', 64, 64, (g) => { const gr = g.createRadialGradient(32, 32, 14, 32, 32, 32); gr.addColorStop(0, 'rgba(120,220,255,0)'); gr.addColorStop(0.75, 'rgba(120,220,255,0.12)'); gr.addColorStop(0.93, 'rgba(170,240,255,0.55)'); gr.addColorStop(1, 'rgba(170,240,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); }, 0.8);
+        c.globalAlpha = 0.7 + pv * 0.3; c.drawImage(bub.c, -R, -R, R * 2, R * 2); c.globalAlpha = 1;
+        c.strokeStyle = rgba('#bff4ff', 0.35 + pv * 0.4); c.lineWidth = 1.4;
+        polyPath(c, 6, R * 0.92, t * 0.5); c.stroke();
+        c.strokeStyle = rgba('#bff4ff', 0.25); c.lineWidth = 0.8;
+        polyPath(c, 6, R * 0.8, -t * 0.7); c.stroke();
+        c.globalCompositeOperation = 'source-over';
       }
       c.restore();
     }

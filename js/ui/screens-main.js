@@ -2,6 +2,7 @@
 import { h, btn, iconBtn, register, go, back, show, refresh, widget, modal, curBar, curIcon, costEl, rewardRow, rewardPopup, flyRewards, toast, setMenuWorld, ui, clearScreens } from './ui.js';
 import { SVG } from './icons.js';
 import { drawLogo, planetCanvas } from './art-ui.js';
+import { drawTitleScene, drawHangar, buildLogo } from './title.js';
 import { app } from '../app.js';
 import { S, saveSoon } from '../economy/save.js';
 import { DIFFS, BOOSTS, SHIP_BY_ID, CUR } from '../economy/data.js';
@@ -40,9 +41,13 @@ function ticker() {
 register('title', {
   build() {
     const el = h('div', { class: 'title-screen' });
-    const logo = h('div', { style: 'position:absolute;left:0;right:0;top:24%;height:150px;pointer-events:none' });
-    el.append(logo, h('div', { class: 'tap tap-hint' }, 'Touchez pour décoller'), h('div', { class: 'ver' }, 'v' + app.version + ' · sans pub · sans achat'));
-    widget(logo, (r, t) => drawLogo(r, t));
+    const scene = h('div', { style: 'position:absolute;inset:0;pointer-events:none' });
+    el.append(scene,
+      h('div', { class: 'tap arcade-tap' }, h('span', { class: 'chev' }, '▶'), 'Touche pour jouer', h('span', { class: 'chev r' }, '◀')),
+      h('div', { class: 'title-feats' }, '320 niveaux', h('i', null, '✦'), '10 vaisseaux', h('i', null, '✦'), '7 colosses'),
+      h('div', { class: 'ver' }, 'v' + app.version + ' · sans pub · sans achat'));
+    drawTitleScene.slammed = false;
+    widget(scene, (r, t) => drawTitleScene(r, t, S.ship));
     el.addEventListener('click', () => { ensureAudio(); sfx.open(); music.play('menu'); go('hub', {}, false); });
     return el;
   },
@@ -59,22 +64,14 @@ register('hub', {
       h('div', { style: 'width:70px' }, h('div', { class: 'bar' }, h('i', { style: `width:${Math.round(xpk * 100)}%` }))));
     const top = h('div', { class: 'topbar' }, pilot, curBar(['coins', 'crystals', 'gems']), iconBtn(SVG.gear, () => go('settings'), 'Réglages'));
     const hero = h('div', { class: 'hero' });
-    const planet = h('div', { style: 'position:absolute;left:0;right:0;top:4%;bottom:42%;pointer-events:none' });
-    widget(planet, (r, t) => {
-      const c = planetCanvas(W, 160, false);
-      const s = Math.min(r.w, r.h) * 1.05;
-      const cx = r.x + r.w / 2, cy = r.y + r.h / 2 + Math.sin(t * 0.8) * 4;
-      ctx.globalCompositeOperation = 'lighter';
-      const g = glow(W.pal.neb2, 32); ctx.globalAlpha = 0.5 + 0.15 * Math.sin(t * 2); ctx.drawImage(g.c, cx - s, cy - s, s * 2, s * 2); ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.drawImage(c, cx - s / 2, cy - s / 2, s, s);
-      const sh = S.ship, F = SHIP_FX[sh];
-      const a = t * 0.7, ox = Math.cos(a) * s * 0.55, oy = Math.sin(a) * s * 0.18;
-      if (Math.sin(a) > 0 || true) { setT(cx + ox, cy + oy + 10, 1.1); ctx.rotate(Math.cos(a) > 0 ? 0.25 : -0.25); F.draw(ctx, t, SHIP_BY_ID[sh].color, SHIP_BY_ID[sh].color2); baseT(); }
-    });
+    const planet = h('div', { style: 'position:absolute;left:0;right:0;top:0;bottom:40%;pointer-events:none' });
+    widget(planet, (r, t) => drawHangar(r, t, S.ship, W));
+    const SD = SHIP_BY_ID[S.ship];
+    const showcase = h('button', { class: 'showcase', onclick: () => { sfx.ui(); go('hangar'); } },
+      h('b', { style: `color:${SD.color}` }, SD.name), h('span', { class: 'pw' }, h('i', { html: SVG.bolt || '⚡' }), 'Puissance ', h('strong', null, fmt(powerRating()))));
     const L = Math.min(320, S.maxLevel);
     const info = levelInfo(L);
-    hero.append(planet,
+    hero.append(planet, showcase,
       h('div', { class: 'wname' }, `Monde ${W.w + 1} · ${info.code}`),
       h('div', { class: 'wtitle', style: `color:${W.pal.neb2}` }, W.name),
       btn(SVG.play.replace('<svg', '<svg style="width:22px;height:22px"') + ` JOUER ${info.code}`, 'primary big pulse', () => levelSheet(L)),
@@ -278,15 +275,26 @@ export function pauseMenu(game) {
 export function continueMenu(game) {
   const n = game.revives;
   const cost = n === 0 ? { crystals: 10 + Math.floor(game.def.L / 10) } : n === 1 ? { gems: 5 } : null;
-  const free = game.def.kind === 'coins';
   let m;
-  const items = [h('h2', { class: 'pink-t' }, 'Coque détruite !'), h('p', { class: 'center' }, 'Vos trouvailles sont conservées. Voulez-vous une seconde chance ?')];
+  const items = [h('h2', { class: 'pink-t cont-title' }, 'Continuer ?'), h('p', { class: 'center muted', style: 'margin:0 0 6px' }, 'Coque détruite ! Tes trouvailles sont conservées.')];
   if (cost) {
-    const b = btn(h('span', null, 'Repartir  ', costEl(cost)), 'green big wide' + (canPay(cost) ? '' : ' cant'), () => { if (!pay(cost)) return; m.close(); game.revive(); }, { onDeny: () => toast('Pas assez de ressources', 'Gagnez-en en jouant !', SVG.lock, '#ff4f6e') });
+    const k = cost.crystals ? 'crystals' : 'gems', amount = cost[k], C = CUR[k], have = S.cur[k] || 0, ok = canPay(cost);
+    // prix en très grand : icône de la monnaie + montant + nom
+    items.push(h('div', { class: 'cont-price', style: `--c:${C.color}` },
+      h('img', { src: iconURL(k, 128), alt: C.name }),
+      h('div', null, h('b', null, '× ' + amount), h('span', null, amount > 1 ? C.name : C.one)),
+    ));
+    items.push(h('div', { class: 'cont-have' + (ok ? '' : ' low') }, `Tu as ${fmt(have)} ${have > 1 ? C.name.toLowerCase() : C.one}`));
+    const ring = h('div', { class: 'cont-ring' }, h('b', null, '10'));
+    items.splice(1, 0, ring);
+    let left = 10;
+    const tick = setInterval(() => { if (!ring.isConnected) { clearInterval(tick); return; } left--; ring.firstChild.textContent = String(Math.max(0, left)); ring.classList.remove('beat'); void ring.offsetWidth; ring.classList.add('beat'); if (left <= 0) clearInterval(tick); }, 1000);
+    const b = btn(h('span', { class: 'cont-btn' }, 'Repartir pour ', h('img', { src: iconURL(k, 64), alt: '' }), h('b', null, String(amount))), 'green big wide' + (ok ? '' : ' cant'),
+      () => { if (!pay(cost)) return; clearInterval(tick); m.close(); game.revive(); }, { onDeny: () => toast('Pas assez de ' + C.name.toLowerCase(), 'Gagnes-en en jouant !', SVG.lock, '#ff4f6e') });
     items.push(b);
-  }
+  } else items.push(h('p', { class: 'center' }, 'Plus de seconde chance pour ce niveau.'));
   items.push(h('div', { style: 'height:8px' }), btn('Abandonner', 'ghost wide', () => { m.close(); game.finish(false); }));
-  m = modal(items, { dismiss: false });
+  m = modal(items, { dismiss: false, cls: 'cont-modal' });
 }
 
 // ================= RÉSULTATS =================

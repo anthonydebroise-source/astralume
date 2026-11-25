@@ -31,6 +31,7 @@ let last = performance.now();
 window.errors = [];
 function loop(t) {
   const dt = Math.min(0.05, (t - last) / 1000); last = t;
+  if (q.get('calm')) { g.ebs.length = 0; g.pbs.length = 0; g.hazards.length = 0; g.player.wlvl = 1; g.def.noWeapons = true; g.enemies.length = 0; }
   try { g.update(dt); updateCam(dt); g.draw(); } catch (e) { window.errors.push(String(e.stack || e)); console.error(e); }
   endFrameInput();
   requestAnimationFrame(loop);

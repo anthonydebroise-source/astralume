@@ -14,10 +14,11 @@ export function explode(x, y, size, c1, c2 = '#ffffff', goo = true) {
     const a = rand(TAU), sp = rand(80, 230 + size * 70);
     fx.spark(x, y, Math.cos(a) * sp, Math.sin(a) * sp, rand(0.22, 0.5 + size * 0.05), rand(7, 14) + size * 3, i % 3 ? c1 : '#ffffff', 1.3 + size * 0.25);
   }
+  // braises : traînées chaudes (jamais des pastilles rondes, pour ne pas ressembler aux tirs ennemis)
   const nd = 2 + size * 3;
   for (let i = 0; i < nd; i++) {
-    const a = rand(TAU), sp = rand(10, 60 + size * 20);
-    fx.dot(x + rand(-4, 4) * size, y + rand(-4, 4) * size, Math.cos(a) * sp, Math.sin(a) * sp, rand(0.35, 0.7), 6 + size * 4, i % 2 ? c1 : c2, 0.9);
+    const a = rand(TAU), sp = rand(50, 130 + size * 30);
+    fx.spark(x + rand(-4, 4) * size, y + rand(-4, 4) * size, Math.cos(a) * sp, Math.sin(a) * sp, rand(0.3, 0.6), rand(4, 8), i % 2 ? '#ffe2a8' : '#ff9a4a', 1.1);
   }
   if (goo) {
     const ng = 3 + size * 3;
@@ -53,6 +54,6 @@ export function sparkle(x, y, c, n = 5, spread = 14) {
   for (let i = 0; i < n; i++) fx.star(x + rand(-spread, spread), y + rand(-spread, spread), rand(3, 6), rand(0.3, 0.6), c, rand(-30, 30), rand(-60, -10));
 }
 export function cancelPop(x, y, c) {
-  fx.dot(x, y, 0, -20, 0.3, 7, c, 0.9);
+  fx.dot(x, y, 0, -20, 0.25, 5, '#ffe9a0', 0.9);
   fx.star(x, y, 4, 0.35, '#ffffff', 0, -30);
 }

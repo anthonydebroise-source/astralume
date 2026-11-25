@@ -1,5 +1,5 @@
 // Service worker : met tout le jeu en cache pour jouer hors ligne
-const VERSION = 'astralume-202611250037';
+const VERSION = 'astralume-202611251004';
 const ASSETS = [
   "./",
   "css/style.css",
@@ -23,11 +23,14 @@ const ASSETS = [
   "js/engine/noise.js",
   "js/engine/particles.js",
   "js/engine/renderer.js",
+  "js/engine/sculpt.js",
   "js/engine/sprites.js",
   "js/game/art.js",
   "js/game/background.js",
   "js/game/bgart.js",
   "js/game/boss.js",
+  "js/game/bossart.js",
+  "js/game/bossart2.js",
   "js/game/combo.js",
   "js/game/drones.js",
   "js/game/enemies.js",
@@ -44,6 +47,8 @@ const ASSETS = [
   "js/game/radio.js",
   "js/game/shipart.js",
   "js/game/ships.js",
+  "js/game/shipsculpt.js",
+  "js/game/skins.js",
   "js/icon.js",
   "js/levels/formations.js",
   "js/levels/generator.js",
@@ -53,6 +58,7 @@ const ASSETS = [
   "js/ui/icons.js",
   "js/ui/screens-main.js",
   "js/ui/screens-meta.js",
+  "js/ui/title.js",
   "js/ui/ui.js",
   "manifest.webmanifest"
 ];

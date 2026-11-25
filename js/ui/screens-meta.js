@@ -102,12 +102,13 @@ function dronesTab() {
     const id = S.slots[i];
     const unlocked = i < E.slotCount();
     const sl = h('div', { class: 'slot' + (id && unlocked ? ' filled' : '') });
-    if (!unlocked) sl.append(h('span', { html: SVG.lock, style: 'width:18px;display:inline-block' }), ' Atelier');
+    if (!unlocked) sl.append(h('span', { html: SVG.lock, style: 'width:18px;display:inline-block' }), ' Verrouillé');
     else if (id) { const cv = h('canvas', { width: 88, height: 88 }); sl.append(cv, DRONE_BY_ID[id].name); drawDroneCanvas(cv, id); sl.onclick = () => { E.unequipDrone(i); sfx.back(); refresh(); }; }
     else sl.append('Emplacement libre');
     slots.append(sl);
   }
-  out.push(h('div', { class: 'subtitle' }, 'Emplacements'), slots, h('div', { class: 'subtitle' }, 'Drones'));
+  out.push(h('div', { class: 'drone-help' }, h('b', null, 'Escorte'), 'Tes drones volent à gauche et à droite de ton vaisseau et combattent avec toi. Équipe-en deux : un par emplacement. Touche un emplacement pour le libérer.'),
+    h('div', { class: 'subtitle' }, 'Emplacements · gauche / droite'), slots, h('div', { class: 'subtitle' }, 'Drones'));
   const cards = h('div', { class: 'cards' });
   for (const d of DRONES) {
     const own = E.ownsDrone(d.id);

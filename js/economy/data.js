@@ -59,8 +59,8 @@ export const SHIPS = [
 export const SHIP_BY_ID = Object.fromEntries(SHIPS.map((s) => [s.id, s]));
 
 export const DRONES = [
-  { id: 'sentinelle', name: 'Sentinelle', color: '#38f2ff', desc: 'Tire automatiquement sur l’ennemi le plus proche.', cost: { crystals: 60 }, req: 4 },
-  { id: 'glaneur', name: 'Glaneur', color: '#ffd23f', desc: 'Va chercher pièces et bonus, et étend votre aimant.', cost: { coins: 3000 }, req: 8 },
+  { id: 'sentinelle', name: 'Sentinelle', color: '#38f2ff', desc: 'Tire automatiquement sur l’ennemi le plus proche.', cost: { crystals: 60 }, req: 1 },
+  { id: 'glaneur', name: 'Glaneur', color: '#ffd23f', desc: 'Va chercher pièces et bonus, et étend votre aimant.', cost: { coins: 1500 }, req: 3 },
   { id: 'egide', name: 'Égide', color: '#7dffcf', desc: 'Orbite autour du vaisseau et absorbe les tirs ennemis.', cost: { crystals: 120 }, req: 14 },
   { id: 'foreur', name: 'Foreur', color: '#ff6a4f', desc: 'Fonce sur les ennemis comme une vrille puis revient.', cost: { crystals: 200, gems: 10 }, req: 25 },
   { id: 'echo', name: 'Écho', color: '#c8a2ff', desc: 'Votre double fantôme : il rejoue vos tirs avec un léger retard.', cost: { gems: 30 }, req: 35 },
@@ -88,8 +88,6 @@ export const UPGRADES = [
     cost: (l) => ({ crystals: Math.round(20 * Math.pow(1.55, l)) }) },
   { id: 'nova', name: 'Hypernova+', desc: '+1 s de super mode', icon: 'nova', max: 5,
     cost: (l) => ({ crystals: Math.round(30 * Math.pow(1.8, l)) }) },
-  { id: 'slot2', name: 'Second drone', desc: 'Débloque un second emplacement de drone', icon: 'drone', max: 1,
-    cost: () => ({ crystals: 250 }), req: 15 },
 ];
 
 export const DIFFS = [
