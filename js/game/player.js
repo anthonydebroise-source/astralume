@@ -14,11 +14,12 @@ import { music } from '../audio/music.js';
 import { explode } from './fx.js';
 
 const OFFSETS = [0, 40, 70, 100];
+export const MAXW = 10; // niveaux de puissance (au-delà de 6 : même motif, dégâts et cadence accrus)
 
 export class Player {
   constructor(g, o) {
     this.g = g;
-    this.id = o.ship;
+    this.id = o.ship; this.startId = o.ship;
     this.meta = SHIP_BY_ID[this.id];
     this.F = SHIP_FX[this.id];
     this.col = this.meta.color; this.col2 = this.meta.color2;
@@ -28,7 +29,7 @@ export class Player {
     this.maxHp = g.def.glass ? 1 : 3 + S.up.hull;
     this.hp = this.maxHp;
     this.shield = g.def.glass ? 0 : S.up.shield + (o.boosts.shield ? 1 : 0);
-    this.wlvl = clamp(1 + S.up.arsenal + (o.boosts.power ? 2 : 0), 1, 6);
+    this.wlvl = clamp(1 + S.up.arsenal + (o.boosts.power ? 2 : 0), 1, MAXW);
     this.gauge = 0.3;
     this.superMax = 8 + S.up.nova;
     this.super = o.boosts.nova ? 6 : 0;
@@ -62,7 +63,7 @@ export class Player {
   }
   get dmgMul() { return this.dmgMul0 * (this.super > 0 ? 1.8 : 1); }
   get rateMul() { return this.rateMul0 * (this.super > 0 ? 1.35 : 1); }
-  effLvl() { return Math.min(6, this.wlvl + (this.super > 0 ? 2 : 0)); }
+  effLvl() { return Math.min(MAXW, this.wlvl + (this.super > 0 ? 2 : 0)); }
 
   update(dt) {
     const g = this.g;
@@ -152,16 +153,16 @@ export class Player {
     this.wlvlEff = lvl;
     this.wcd -= dt * this.rateMul;
     if (this.wcd <= 0) {
-      this.wcd += W.interval(lvl);
+      this.wcd += W.interval(Math.min(6, lvl)) / (1 + 0.05 * Math.max(0, lvl - 6));
       if (this.wcd < -0.2) this.wcd = 0;
-      const v = this.vol;
-      v.x = this.x; v.y = this.y - 18; v.lvl = lvl; v.dmg = this.dmgMul; v.ghost = false; v.col = this.col;
+      const v = this.vol, over = 1 + 0.16 * Math.max(0, lvl - 6);
+      v.x = this.x; v.y = this.y - 18; v.lvl = Math.min(6, lvl); v.dmg = this.dmgMul * over; v.ghost = false; v.col = this.col;
       W.volley(g, v);
       if (this.id !== 'lance' && this.id !== 'phenix') sfx.shot(this.id === 'paon' ? 1 : this.id === 'diapason' ? 1 : 0);
       else if (this.id === 'phenix') sfx.shot(2);
       for (const d of g.drones) if (d.id === 'echo') {
         const e = d.echoVol || (d.echoVol = { x: 0, y: 0, lvl: 1, dmg: 1, ghost: true, col: '#c8a2ff' });
-        e.x = d.x; e.y = d.y; e.lvl = Math.max(1, lvl - 1); e.dmg = this.dmgMul * 0.32 * d.P;
+        e.x = d.x; e.y = d.y; e.lvl = Math.max(1, Math.min(6, lvl) - 1); e.dmg = this.dmgMul * 0.32 * d.P;
         W.volley(g, e);
       }
     }
@@ -208,6 +209,11 @@ export class Player {
     this.hp--;
     g.stats.hullHits++;
     this.wlvl = Math.max(1, this.wlvl - 1);
+    // un vaisseau légendaire attrapé en capsule est perdu au premier coup (les autres restent)
+    if (this.meta.rarity >= 3 && this.id !== this.startId && this.hp > 0) {
+      g.msg(this.meta.name.toUpperCase() + ' PERDU !', '#ff8aa8', 18, 1.6);
+      this.switchShip(this.startId || 'etincelle');
+    }
     this.inv = 2.2;
     sfx.hurt();
     flash('#ff2040', 0.4); addShake(0.45); hitstop(0.08);

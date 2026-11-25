@@ -238,40 +238,40 @@ export class Game {
   }
   // Capsules : les vaisseaux et drones possédés arrivent en renfort pendant le niveau
   makeCapPlan() {
+    // peu de capsules, bien espacées : 1 vaisseau et 2 drones au plus par niveau
     const plan = [], boss = this.def.kind === 'boss' || this.def.kind === 'miniboss';
     const ships = SHIPS.filter((s) => s.id !== 'etincelle' && ownsShip(s.id));
     const drones = DRONES.filter((d) => ownsDrone(d.id));
-    if (drones.length) { plan.push({ at: boss ? 0.06 : 0.1, kind: 'dronecap' }); if (drones.length > 1) plan.push({ at: boss ? 0.3 : 0.42, kind: 'dronecap' }); }
-    if (ships.length) { plan.push({ at: boss ? 0.16 : 0.27, kind: 'shipcap' }); if (!boss && ships.length > 1) plan.push({ at: 0.66, kind: 'shipcap' }); }
-    if (!boss && drones.length > 2) plan.push({ at: 0.8, kind: 'dronecap' });
+    if (drones.length) { plan.push({ at: boss ? 0.08 : 0.15, kind: 'dronecap' }); if (!boss) plan.push({ at: 0.62, kind: 'dronecap' }); }
+    if (ships.length) plan.push({ at: boss ? 0.22 : 0.36, kind: 'shipcap' });
     return plan.sort((a, b) => a.at - b.at);
   }
-  pickCapsule(kind) {
-    const wsum = (arr) => arr.reduce((a, x) => a + x.w, 0);
-    let cands;
-    const falling = (id) => this.pickups.some((k) => !k.dead && k.kind === kind && k.id === id);
-    if (kind === 'shipcap') cands = SHIPS.filter((s) => s.id !== 'etincelle' && s.id !== this.player.id && ownsShip(s.id) && !falling(s.id)).map((s) => ({ id: s.id, w: s.id === S.ship ? 3 : 1 }));
-    else cands = DRONES.filter((d) => ownsDrone(d.id) && !this.drones.some((x) => x.id === d.id) && !falling(d.id)).map((d) => ({ id: d.id, w: S.slots.includes(d.id) ? 3 : 1 }));
-    if (!cands.length) return null;
-    let r = Math.random() * wsum(cands);
-    for (const c of cands) { r -= c.w; if (r <= 0) return c.id; }
-    return cands[0].id;
+  // liste des choix d'une capsule : le contenu défile, on l'attrape quand on voit celui qu'on veut
+  capOptions(kind) {
+    let list;
+    if (kind === 'shipcap') list = SHIPS.filter((s) => s.id !== 'etincelle' && s.id !== this.player.id && ownsShip(s.id)).map((s) => s.id).sort((a, b) => (b === S.ship) - (a === S.ship));
+    else list = DRONES.filter((d) => ownsDrone(d.id) && !this.drones.some((x) => x.id === d.id)).map((d) => d.id).sort((a, b) => S.slots.includes(b) - S.slots.includes(a));
+    return list;
   }
+  pickCapsule(kind) { const l = this.capOptions(kind); return l.length ? l[0] : null; }
   updateCapsules() {
     const P = this.capPlan;
     if (!P.length || this.state !== 'play') return;
+    if (this.pickups.some((k) => !k.dead && (k.kind === 'shipcap' || k.kind === 'dronecap'))) return; // une seule à la fois
     const pr = this.boss ? 1 : this.progress();
     if (pr < P[0].at) return;
-    const c = P.shift(), id = this.pickCapsule(c.kind);
-    if (!id) return;
-    const k = makePickup(c.kind, rand(90, view.w - 90), view.safeT - 30, 1);
-    k.id = id; k.vx = 0; k.vy = 42;
+    const c = P.shift(), opts = this.capOptions(c.kind);
+    if (!opts.length) return;
+    const k = makePickup(c.kind, rand(110, view.w - 110), view.safeT - 30, 1);
+    k.opts = opts; k.oi = 0; k.id = opts[0]; k.swapT = 1.5; k.vx = 0; k.vy = 34;
     this.pickups.push(k);
     sfx.energy();
-    this.msg(c.kind === 'shipcap' ? 'RENFORT : ' + SHIP_BY_ID[id].name.toUpperCase() + ' !' : 'DRONE EN APPROCHE !', c.kind === 'shipcap' ? SHIP_BY_ID[id].color : DRONE_BY_ID[id].color, 17, 1.6);
+    this.msg(c.kind === 'shipcap' ? 'CAPSULE DE RENFORT !' : 'CAPSULE DE DRONE !', c.kind === 'shipcap' ? '#ffffff' : '#38f2ff', 18, 1.6);
+    if (opts.length > 1) this.later(1.2, () => this.msg('Son contenu change : attrape-la au bon moment !', '#d8dcff', 12, 2));
   }
   addDrone(id) {
-    if (this.drones.some((d) => d.id === id)) { this.stats.coins += Math.round(20 * this.D.loot); this.player.gauge = Math.min(1, this.player.gauge + 0.3); return; }
+    const same = this.drones.find((d) => d.id === id);
+    if (same) { same.life = same.max; return; } // même drone : batterie rechargée
     const used = this.drones.map((d) => d.slot);
     let slot = [0, 1].find((x) => !used.includes(x));
     if (slot === undefined) { const old = this.drones.shift(); slot = old.slot; }
@@ -419,7 +419,7 @@ export class Game {
       case 'gems': this.stats.gems += k.v || 1; sfx.gem(); fx.text(k.x, k.y - 12, '+' + (k.v || 1) + ' GEMME' + ((k.v || 1) > 1 ? 'S' : ''), '#ff8ae6', 14, 0.8); break;
       case 'parts': this.stats.parts += k.v || 1; sfx.part(); fx.text(k.x, k.y - 10, '+' + (k.v || 1), '#ffbe7a', 11, 0.6); break;
       case 'power':
-        if (p.wlvl < 6) { p.wlvl++; this.msg(p.wlvl === 6 ? 'ARME AU MAXIMUM !' : `ARME NIVEAU ${p.wlvl}`, '#ff9d3c', 18, 1); }
+        if (p.wlvl < 10) { p.wlvl++; this.msg(p.wlvl === 10 ? 'PUISSANCE MAXIMUM !' : p.wlvl > 6 ? `SURPUISSANCE ${p.wlvl} !` : `PUISSANCE ${p.wlvl}`, p.wlvl > 6 ? '#ff6af0' : '#ff9d3c', 18, 1); }
         else { this.stats.coins += Math.round(10 * this.D.loot); p.gauge = Math.min(1, p.gauge + 0.15); }
         sfx.power(); fx.ring(p.x, p.y, 8, 50, 0.35, '#ff9d3c', 3);
         break;
@@ -430,6 +430,7 @@ export class Game {
         if (p.hp < p.maxHp) { p.hp++; this.msg('COQUE RÉPARÉE', '#ff8aa8', 15, 0.9); } else this.stats.coins += Math.round(15 * this.D.loot);
         sfx.heal(); break;
       case 'shipcap': {
+        if (!ownsShip(k.id)) { this.stats.coins += Math.round(30 * this.D.loot); break; } // sécurité : jamais un vaisseau non possédé
         const D = SHIP_BY_ID[k.id]; this.addScore(2000, p.x, p.y, true);
         p.switchShip(k.id);
         sfx.nova(); flash(D.color, 0.45); addShake(0.25);
@@ -438,6 +439,7 @@ export class Game {
         break;
       }
       case 'dronecap': {
+        if (!ownsDrone(k.id)) { this.stats.coins += Math.round(20 * this.D.loot); break; }
         const D = DRONE_BY_ID[k.id];
         this.addDrone(k.id);
         sfx.power(); flash(D.color, 0.25);
@@ -750,6 +752,7 @@ export class Game {
     this.beamsDraw.length = 0;
     this.player.update(dt);
     for (const d of this.drones) d.update(dt);
+    if (this.drones.some((d) => d.dead)) this.drones = this.drones.filter((d) => !d.dead);
     this.updatePB(dt);
     this.updateEnemies(dt);
     if (this.boss) this.boss.update(dt);

@@ -33,18 +33,20 @@ export const KIND_NAMES = {
   normal: 'Mission', coins: 'Pluie de pièces', bonus: 'Mine de cristaux', challenge: 'Défi', miniboss: 'Gardien', boss: 'Colosse',
 };
 export const CHALLENGES = {
-  glass: { name: 'Coque de verre', desc: 'Un seul cœur, aucun bouclier. Récompenses ×1,5.' },
-  survive: { name: 'Tempête IEM', desc: 'Armes hors service : esquivez pendant 30 secondes.' },
-  hunt: { name: 'Chasse à l’or', desc: 'Abattez les élites dorées avant qu’elles ne fuient.' },
-  time: { name: 'Contre-la-montre', desc: 'Détruisez 40 aliens le plus vite possible.' },
+  glass: { name: 'Coque de verre', desc: 'Un seul cœur, aucun bouclier. Récompenses ×1,5.', short: 'Un seul cœur · récompenses ×1,5' },
+  survive: { name: 'Tempête IEM', desc: 'Niveau spécial : tes armes sont HORS SERVICE. Tu ne peux pas tirer : esquive tout pendant 30 secondes !', short: 'Armes hors service : esquive 30 s !' },
+  hunt: { name: 'Chasse à l’or', desc: 'Abattez les élites dorées avant qu’elles ne fuient.', short: 'Abats les élites dorées' },
+  time: { name: 'Contre-la-montre', desc: 'Détruisez 40 aliens le plus vite possible.', short: '40 aliens le plus vite possible' },
 };
 const ARCH_NAMES = {
   jelly: 'Méduse Matriarche', flower: 'Fleur Dévorante', crab: 'Crabe-Citadelle', eye: 'Œil de la Nuée',
   mantis: 'Mante Prismatique', worm: 'Grand Ver Astral', heart: 'Cœur de la Nuée',
+  dread: 'Cuirassé Vortex', ring: 'Forteresse Halo', seraph: 'Séraphin d’Ivoire',
 };
 const MINI_NAMES = {
   jelly: 'Méduse sentinelle', flower: 'Bourgeon carnivore', crab: 'Crabe gardien', eye: 'Œil veilleur',
   mantis: 'Mante éclaireuse', worm: 'Ver gardien', heart: 'Cœur gardien',
+  dread: 'Frégate gardienne', ring: 'Anneau sentinelle', seraph: 'Chérubin gardien',
 };
 const EPITHETS = ['d’Opale', 'Aux Mille Lueurs', 'l’Insatiable', 'du Vide', 'la Dévoreuse', 'Écarlate', 'des Abysses', 'l’Ancienne', 'Prismatique', 'du Crépuscule', 'Sans Repos', 'la Vorace'];
 

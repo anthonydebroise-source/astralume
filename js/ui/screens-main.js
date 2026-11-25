@@ -216,7 +216,7 @@ export function levelSheet(L) {
     let desc = { normal: 'Repoussez les vagues de la Nuée.', coins: 'Aucun danger : ramassez un maximum de pièces !', bonus: 'Faites éclater les astéroïdes riches en cristaux.', miniboss: `Un gardien de la Nuée : ${info.boss}.`, boss: `Le colosse du monde : ${info.boss}. Détruisez ses parties une à une.`, challenge: '' }[info.kind];
     if (info.kind === 'challenge') desc = CHALLENGES[info.challenge].name + ' — ' + CHALLENGES[info.challenge].desc;
     const trait = info.trait ? h('p', { class: 'center', style: 'color:#ffd23f' }, `Trait : ${TRAITS[info.trait].name} — ${TRAITS[info.trait].desc}`) : null;
-    const pw = powerRating(), rec = recommendedPower(L, diff);
+    const pw = powerRating('etincelle'), rec = recommendedPower(L, diff);
     const pcol = pw >= rec ? '#47ffa3' : pw >= rec * 0.75 ? '#ffd23f' : '#ff4f6e';
     const dm = DIFFS[diff].mul;
     const first = st[diff] === 0;
@@ -226,11 +226,21 @@ export function levelSheet(L) {
     const partsN = info.kind === 'boss' ? [3, 6, 10][diff] : info.kind === 'miniboss' ? [1, 3, 5][diff] : diff === 2 ? 2 : 0;
     if (partsN) rw.parts = partsN;
     if ((info.kind === 'boss' || info.kind === 'miniboss') && first) rw.chest = 'boss';
-    const boostRow = h('div', { class: 'row', style: 'flex-wrap:wrap;justify-content:center;gap:6px' });
+    const boostRow = h('div', { class: 'boostgrid' });
+    // boosts de départ : utilisables s'ils sont en stock, sinon achetables (pièces / cristaux)
+    const BCOST = { power: { coins: 400 + 15 * L }, shield: { coins: 300 + 10 * L }, nova: { crystals: 15 + Math.floor(L / 8) } };
     for (const k of Object.keys(BOOSTS)) {
       const n = S.boosts[k] || 0;
-      if (!n) continue;
-      boostRow.append(h('button', { class: 'btn small ' + (boosts[k] ? 'green' : 'ghost'), onclick: () => { sfx.ui(); boosts[k] = !boosts[k]; render(); } }, h('img', { src: iconURL('boost_' + k, 48) }), `${BOOSTS[k].name} (${n})`));
+      const on = !!boosts[k];
+      const b = h('button', { class: 'boostcard' + (on ? ' on' : ''), style: `--c:${BOOSTS[k].color}`, onclick: () => {
+        sfx.ui();
+        if (on) { boosts[k] = false; render(); return; }
+        if (n > 0) { boosts[k] = true; render(); return; }
+        if (pay(BCOST[k])) { S.boosts[k] = (S.boosts[k] || 0) + 1; boosts[k] = true; sfx.buy(); saveSoon(); render(); }
+        else toast('Ressources insuffisantes', 'Gagne des pièces et des cristaux en jouant !', SVG.lock, '#ff4f6e');
+      } }, h('img', { src: iconURL('boost_' + k, 64) }), h('b', null, BOOSTS[k].name), h('small', null, BOOSTS[k].desc),
+        on ? h('em', { class: 'on' }, '✓ ACTIVÉ') : n > 0 ? h('em', null, `En stock : ${n}`) : h('em', null, costEl(BCOST[k])));
+      boostRow.append(b);
     }
     const ship = SHIP_BY_ID[S.ship];
     body.append(...[
@@ -242,9 +252,9 @@ export function levelSheet(L) {
       rewardRow(rw),
       h('div', { class: 'row', style: 'justify-content:center;margin:12px 0 4px;font-weight:800' }, h('span', null, 'Puissance '), h('span', { style: `color:${pcol}` }, fmt(pw)), h('span', { class: 'muted', style: 'margin-left:6px' }, `/ recommandée ${fmt(rec)}`)),
       pw < rec * 0.75 ? h('p', { class: 'center small', style: 'color:#ffb0c0' }, 'Conseil : améliorez votre vaisseau au Hangar ou à l’Atelier.') : null,
-      boostRow.childNodes.length ? h('div', null, h('div', { class: 'subtitle' }, 'Boosts'), boostRow) : null,
+      h('div', null, h('div', { class: 'subtitle' }, 'Boosts de départ'), boostRow),
       h('div', { class: 'row', style: 'margin-top:14px' },
-        btn(`${ship.name}`, 'ghost', () => { m.close(); go('hangar'); }),
+        btn('Hangar', 'ghost', () => { m.close(); go('hangar'); }),
         h('div', { class: 'spacer' }),
         btn('DÉCOLLER', 'primary big', () => {
           S.lastDiff = diff;
@@ -271,6 +281,23 @@ export function pauseMenu(game) {
       btn('Recommencer', '', () => { m.close(); app.restart(); }),
       tog('music', 'Musique'), tog('sfx', 'Bruitages'),
       btn('Quitter le niveau', 'ghost', () => { m.close(); game.paused = false; game.finish(false); }))], { dismiss: false });
+}
+
+// ================= BRIEFING DES DÉFIS (le jeu attend que le joueur ait lu) =================
+export function briefingMenu(game) {
+  const d = game.def;
+  if (d.kind !== 'challenge') return;
+  const C = CHALLENGES[d.challenge];
+  game.paused = true;
+  const icon = { survive: '⚡', glass: '💎', hunt: '🎯', time: '⏱' }[d.challenge] || '★';
+  let m;
+  m = modal([
+    h('div', { class: 'brief-ico' }, icon),
+    h('h2', { class: 'gold-t', style: 'margin:4px 0' }, 'DÉFI : ' + C.name.toUpperCase()),
+    h('p', { class: 'center', style: 'font-size:15px;line-height:1.4;margin:6px 0 10px' }, C.desc),
+    d.noWeapons ? h('div', { class: 'brief-warn' }, 'Ce n’est pas un bug : dans ce niveau, ton vaisseau ne tire pas.') : null,
+    btn('C’est parti !', 'primary big wide', () => { m.close(); game.paused = false; }),
+  ].filter(Boolean), { dismiss: false });
 }
 
 // ================= SECONDE CHANCE =================

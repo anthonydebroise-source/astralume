@@ -75,8 +75,8 @@ export const UPGRADES = [
     cost: (l) => ({ coins: [800, 2200, 6000, 14000, 30000][l], parts: [0, 5, 15, 30, 60][l] }) },
   { id: 'shield', name: 'Bouclier de départ', desc: 'Commencer chaque niveau avec +1 bouclier', icon: 'shield', max: 3,
     cost: (l) => ({ coins: [1500, 7000, 22000][l], crystals: [0, 40, 120][l] }) },
-  { id: 'arsenal', name: 'Arsenal', desc: 'Commencer avec +1 niveau d’arme', icon: 'power', max: 3,
-    cost: (l) => ({ coins: [2500, 10000, 32000][l], parts: [5, 20, 50][l] }) },
+  { id: 'arsenal', name: 'Arsenal', desc: 'Commencer chaque niveau avec +1 niveau de puissance (jusqu’à 8)', icon: 'power', max: 7,
+    cost: (l) => ({ coins: [2500, 10000, 32000, 60000, 100000, 160000, 250000][l], crystals: [0, 0, 20, 40, 70, 110, 160][l], parts: [5, 20, 50, 70, 90, 120, 160][l] }) },
   { id: 'magnet', name: 'Champ magnétique', desc: '+20 % de portée de l’aimant naturel', icon: 'magnet', max: 8,
     cost: (l) => ({ coins: Math.round(300 * Math.pow(1.65, l) / 10) * 10 }) },
   { id: 'fortune', name: 'Fortune', desc: '+7 % de pièces ramassées', icon: 'coin', max: 10,
@@ -100,5 +100,5 @@ export const DIFFS = [
 export const BOOSTS = {
   nova: { name: 'Départ Hypernova', desc: 'Commencer le niveau en super mode', color: '#ff4fd8' },
   shield: { name: 'Bouclier bonus', desc: '+1 bouclier au départ', color: '#38f2ff' },
-  power: { name: 'Surcharge', desc: '+2 niveaux d’arme au départ', color: '#ff9d3c' },
+  power: { name: 'Surcharge', desc: '+2 niveaux de puissance au départ', color: '#ff9d3c' },
 };

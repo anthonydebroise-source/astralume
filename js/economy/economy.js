@@ -145,6 +145,21 @@ export function upgradeDrone(id) {
   saveSoon(); emit('drone', id);
   return true;
 }
+// Autonomie : durée de présence d'un drone en vol (achetable)
+export const DUR_MAX = 8;
+export const droneDuration = (id) => 18 + 4 * ((S.drones[id] && S.drones[id].du) || 0);
+export function droneDurCost(id) {
+  const d = S.drones[id]; if (!d || (d.du || 0) >= DUR_MAX) return null;
+  const l = d.du || 0;
+  return cleanCost({ coins: r10(600 * Math.pow(1.45, l)), crystals: l >= 2 ? 6 + l * 4 : 0 });
+}
+export function upgradeDroneDur(id) {
+  const c = droneDurCost(id);
+  if (!c || !pay(c)) return false;
+  S.drones[id].du = (S.drones[id].du || 0) + 1;
+  saveSoon(); emit('drone', id);
+  return true;
+}
 export function dronePower(id) { const d = S.drones[id]; return d ? (1 + 0.16 * (d.lvl - 1)) * (1 + (d.m || 0)) : 0; }
 export function equipDrone(id, slot) {
   if (slot >= slotCount()) return;

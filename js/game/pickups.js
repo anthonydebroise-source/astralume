@@ -68,6 +68,8 @@ export function updatePickups(g, dt) {
   for (let i = list.length - 1; i >= 0; i--) {
     const k = list[i];
     k.t += dt; k.age += dt;
+    if (k.opts && k.opts.length > 1 && !k.attract) { k.swapT -= dt; if (k.swapT <= 0) { k.swapT = 1.5; k.oi = (k.oi + 1) % k.opts.length; k.id = k.opts[k.oi]; k.pop = 1; } }
+    if (k.pop) k.pop = Math.max(0, k.pop - dt * 4);
     if (k.dead) { list[i] = list[list.length - 1]; list.pop(); continue; }
     if (p.alive && !k.attract) {
       const d2 = dist2(k.x, k.y, p.x, p.y);
@@ -83,7 +85,7 @@ export function updatePickups(g, dt) {
       k.age += dt;
     } else if (CAP[k.kind]) {
       // les capsules descendent lentement en ondulant : il faut aller les chercher
-      k.vx = Math.cos(k.t * 1.3) * 38; k.vy = 42;
+      k.vx = Math.cos(k.t * 1.3) * 38; k.vy = 34;
     } else {
       k.vx *= 1 - dt * 2.5;
       k.vy += (55 - k.vy) * Math.min(1, dt * 2);
@@ -116,26 +118,31 @@ export function drawPickups(g) {
       setRTS(k.x, k.y, 0, sx, 1);
       ctx.drawImage(s.c, -s.hw, -s.hh, s.w, s.h);
     } else if (CAP[k.kind]) {
-      const ship = k.kind === 'shipcap', col = ship ? SHIP_BY_ID[k.id].color : DRONE_BY_ID[k.id].color;
-      const bob = Math.sin(k.t * 3) * 2, sc = 1 + 0.06 * Math.sin(k.t * 6);
+      const ship = k.kind === 'shipcap', D = ship ? SHIP_BY_ID[k.id] : DRONE_BY_ID[k.id], col = D.color;
+      const bob = Math.sin(k.t * 3) * 2, sc = 1.3 * (1 + 0.05 * Math.sin(k.t * 6) + (k.pop || 0) * 0.15);
       setT(k.x, k.y + bob, sc);
       ctx.globalCompositeOperation = 'lighter';
-      const gl = glow(col, 16); ctx.globalAlpha = 0.7; ctx.drawImage(gl.c, -30, -36, 60, 72); ctx.globalAlpha = 1;
+      const gl = glow(col, 16); ctx.globalAlpha = 0.75; ctx.drawImage(gl.c, -32, -38, 64, 76); ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
-      ctx.save(); ctx.rotate(Math.sin(k.t * 2) * 0.15);
-      if (ship) { ctx.save(); ctx.scale(0.5, 0.5); drawHypercar(ctx, k.id, k.t, 0); ctx.restore(); }
-      else drawDroneSculpt(ctx, k.id, col, k.t, 0.55);
-      ctx.restore();
+      // fond sombre teinté pour bien détacher le contenu
+      const bg = ctx.createRadialGradient(0, 0, 2, 0, 0, 15); bg.addColorStop(0, rgba(col, 0.45)); bg.addColorStop(1, 'rgba(4,2,16,0.92)');
+      ctx.fillStyle = bg; ctx.beginPath(); ctx.ellipse(0, 0, 13, 22, 0, 0, TAU); ctx.fill();
+      if (ship) { ctx.save(); ctx.scale(0.62, 0.62); drawHypercar(ctx, k.id, k.t, 0); ctx.restore(); }
+      else drawDroneSculpt(ctx, k.id, col, k.t, 0.68);
       const cs = capsule((ctx.getTransform().a || 2), col);
       ctx.drawImage(cs.cv, -cs.ox, -cs.oy, cs.w, cs.h);
-      // anneau tournant + étiquette clignotante
-      ctx.strokeStyle = rgba(col, 0.75); ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.arc(0, 0, 33, k.t * 3, k.t * 3 + 1.6); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, 33, k.t * 3 + Math.PI, k.t * 3 + Math.PI + 1.6); ctx.stroke();
-      if (Math.sin(k.t * 8) > -0.3) {
-        ctx.font = '900 10px "Avenir Next Condensed","Arial Narrow",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(4,2,16,0.9)'; const lb = ship ? 'VAISSEAU' : 'DRONE';
-        ctx.strokeText(lb, 0, -40); ctx.fillStyle = '#ffffff'; ctx.fillText(lb, 0, -40);
-      }
+      // anneau de compte à rebours avant le prochain changement de contenu
+      ctx.strokeStyle = rgba(col, 0.9); ctx.lineWidth = 2;
+      if (k.opts && k.opts.length > 1) { ctx.beginPath(); ctx.arc(0, 0, 32, -Math.PI / 2, -Math.PI / 2 + TAU * (k.swapT / 1.5)); ctx.stroke(); }
+      else { ctx.beginPath(); ctx.arc(0, 0, 32, k.t * 3, k.t * 3 + 1.6); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, 32, k.t * 3 + Math.PI, k.t * 3 + Math.PI + 1.6); ctx.stroke(); }
+      // nom en clair (vaisseau / drone)
+      ctx.font = '900 9px "Avenir Next Condensed","Arial Narrow",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const lb = D.name.toUpperCase(), tw = ctx.measureText(lb).width + 10;
+      ctx.fillStyle = 'rgba(4,2,16,0.85)'; ctx.fillRect(-tw / 2, -46, tw, 13);
+      ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.strokeRect(-tw / 2, -46, tw, 13);
+      ctx.fillStyle = '#ffffff'; ctx.fillText(lb, 0, -39.5);
+      ctx.font = '800 6.5px "Avenir Next Condensed","Arial Narrow",system-ui,sans-serif'; ctx.fillStyle = col;
+      ctx.fillText(ship ? 'VAISSEAU' : 'DRONE', 0, 39);
     } else if (k.kind === 'nova') {
       setT(k.x, k.y);
       ctx.rotate(k.t);

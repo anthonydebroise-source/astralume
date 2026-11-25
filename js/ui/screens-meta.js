@@ -159,7 +159,7 @@ function dronesTab() {
     else sl.append('Favori libre');
     slots.append(sl);
   }
-  out.push(h('div', { class: 'drone-help' }, h('b', null, 'Escorte'), 'Tu décolles sans drone. Pendant le niveau, tes drones arrivent en capsules : attrape-les et ils volent à gauche et à droite de ton vaisseau. Tes deux favoris tombent plus souvent.'),
+  out.push(h('div', { class: 'drone-help' }, h('b', null, 'Escorte'), 'Tu décolles sans drone. Pendant le niveau, tes drones arrivent en capsules : attrape-les et ils volent à gauche et à droite de ton vaisseau pendant un temps limité (jauge sous le drone). Améliore leur Autonomie ⏱ pour qu’ils restent plus longtemps.'),
     h('div', { class: 'subtitle' }, 'Favoris'), slots, h('div', { class: 'subtitle' }, 'Drones'));
   const cards = h('div', { class: 'cards' });
   for (const d of DRONES) {
@@ -169,9 +169,12 @@ function dronesTab() {
     const card = h('div', { class: 'card' + (own ? '' : ' locked') + (S.slots.includes(d.id) ? ' sel' : '') }, cv, h('div', { class: 'nm', style: `color:${d.color}` }, d.name), h('div', { class: 'ds' }, d.desc));
     if (own) {
       const lvl = S.drones[d.id].lvl;
-      card.append(h('div', { class: 'small', style: 'margin:4px 0' }, `Niveau ${lvl}/${E.DRONE_MAX} · ×${E.dronePower(d.id).toFixed(2)}`));
+      card.append(h('div', { class: 'small', style: 'margin:4px 0' }, `Puissance niv. ${lvl}/${E.DRONE_MAX} · ×${E.dronePower(d.id).toFixed(2)}`));
       const c = E.droneUpCost(d.id);
       const b = buyBtn(c, '▲', () => { if (E.upgradeDrone(d.id)) { celebrate(b); refresh(); } });
+      const dc = E.droneDurCost(d.id);
+      const bd = buyBtn(dc, '⏱', () => { if (E.upgradeDroneDur(d.id)) { celebrate(bd); refresh(); } });
+      card.append(h('div', { class: 'small', style: 'margin:2px 0 4px;color:#9ff6ff' }, `Autonomie en vol : ${E.droneDuration(d.id)} s`), h('div', { class: 'row', style: 'gap:4px;margin-bottom:4px' }, bd));
       card.append(h('div', { class: 'row', style: 'flex-wrap:wrap;gap:4px' }, b,
         S.slots.slice(0, E.slotCount()).includes(d.id) ? null : btn('☆ Favori', 'small', () => { let slot = S.slots.slice(0, E.slotCount()).indexOf(null); if (slot < 0) slot = 0; E.equipDrone(d.id, slot); refresh(); })));
     } else {

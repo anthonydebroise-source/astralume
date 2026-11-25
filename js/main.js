@@ -16,7 +16,7 @@ import { buildLevel } from './levels/generator.js';
 import { Game } from './game/game.js';
 import { app } from './app.js';
 import { ui, go, show, clearScreens, menuUpdate, menuDraw, initUINotifications } from './ui/ui.js';
-import { pauseMenu, continueMenu } from './ui/screens-main.js';
+import { pauseMenu, continueMenu, briefingMenu } from './ui/screens-main.js';
 import './ui/screens-meta.js';
 
 // ---------- Démarrage ----------
@@ -47,6 +47,7 @@ app.startLevel = (L, diff, boosts = {}) => {
   g.onPause = () => pauseMenu(g);
   app.game = g;
   lastLevel = { L, diff };
+  if (def.kind === 'challenge') setTimeout(() => { if (app.game === g) briefingMenu(g); }, 350);
 };
 app.restart = () => { if (lastLevel) { const g = app.game; if (g) g.quit(); app.startLevel(lastLevel.L, lastLevel.diff, {}); } };
 app.quitToMenu = () => { if (app.game) app.game.quit(); app.game = null; clearParticles(); go('hub', {}, false); };

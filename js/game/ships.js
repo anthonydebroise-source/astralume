@@ -45,8 +45,8 @@ const W = {
     interval: () => 1 / 5,
     volley(g, s) { if (s.ghost) bolt(g, s, s.x, s.y - 16, 0, 800, 4, 'prism'); },
     update(g, p, dt) {
-      const l = p.wlvl;
-      const dps = 32 * [1, 1.4, 1.8, 2.2, 2.6, 3.0][l - 1] * p.dmgMul * p.rateMul;
+      const l = Math.min(6, p.wlvl);
+      const dps = 32 * [1, 1.4, 1.8, 2.2, 2.6, 3.0][l - 1] * p.dmgMul * p.rateMul * (1 + 0.16 * Math.max(0, p.effLvl() - 6));
       const w = [6, 8, 10, 12, 14, 16][l - 1] * (p.super > 0 ? 1.5 : 1);
       p.beams.length = 0;
       p.beams.push(g.fireBeam(p.x, p.y - 38, w, dps, l >= 3 ? 1 : 0, p.col));
@@ -101,7 +101,7 @@ const W = {
       for (let i = 0; i < n; i++) bolt(g, s, s.x + (i - (n - 1) / 2) * 8, s.y - 16, 0, 650, 1.3, 'plasma');
     },
     update(g, p, dt) {
-      const l = p.wlvl, n = [2, 2, 3, 3, 4, 5][l - 1];
+      const l = Math.min(6, p.wlvl), n = [2, 2, 3, 3, 4, 5][l - 1];
       const R = [48, 50, 54, 58, 62, 68][l - 1];
       p.bladeA = (p.bladeA || 0) + dt * 7;
       p.blades.length = 0;
@@ -109,7 +109,7 @@ const W = {
         const a = p.bladeA + (i / n) * TAU;
         const b = { x: p.x + Math.cos(a) * R, y: p.y + Math.sin(a) * R, a };
         p.blades.push(b);
-        g.bladeHit(b.x, b.y, 12, 4 * p.dmgMul, i);
+        g.bladeHit(b.x, b.y, 12, 4 * p.dmgMul * (1 + 0.16 * Math.max(0, p.effLvl() - 6)), i);
       }
     },
   },

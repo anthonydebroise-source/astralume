@@ -5,6 +5,7 @@ import { fx } from '../engine/particles.js';
 import { glow } from '../engine/sprites.js';
 import { polyPath } from './art.js';
 import { DRONE_BY_ID } from '../economy/data.js';
+import { droneDuration } from '../economy/economy.js';
 import { Sculptor } from '../engine/sculpt.js';
 import { drawDroneSculpt } from './droneart.js';
 
@@ -108,11 +109,21 @@ export class Drone {
     const p = g.player;
     this.x = p.x; this.y = p.y + 20; this.t = rand(10); this.cd = 0.5;
     this.state = 'idle'; this.charges = 3; this.a = slot * Math.PI;
+    this.max = this.life = droneDuration(id); this.dead = false; this.inT = 0;
   }
   home() { const p = this.g.player; return [p.x + (this.slot ? 47 : -47), p.y + 12 + Math.sin(this.t * 2 + this.slot) * 3]; }
   update(dt) {
     const g = this.g, p = g.player;
-    this.t += dt;
+    this.t += dt; this.inT += dt;
+    // présence limitée : le drone repart quand sa batterie est vide
+    this.life -= dt;
+    if (this.life <= 0 && !this.dead) {
+      this.dead = true;
+      fx.ring(this.x, this.y, 6, 40, 0.4, this.col, 3);
+      for (let i = 0; i < 10; i++) { const a = rand(TAU); fx.spark(this.x, this.y, Math.cos(a) * 160, Math.sin(a) * 160, 0.3, 8, this.col, 1.4); }
+      g.msg('DRONE ' + DRONE_BY_ID[this.id].name.toUpperCase() + ' REPART', '#c8d0ff', 13, 1.2);
+      return;
+    }
     if (!p.alive) return;
     const [hx, hy] = this.home();
     switch (this.id) {
@@ -204,8 +215,20 @@ export class Drone {
     ctx.globalCompositeOperation = 'source-over';
     setT(this.x, this.y);
     this.aimS = this.aimS === undefined ? -Math.PI / 2 : this.aimS + Math.atan2(Math.sin((this.aim ?? -Math.PI / 2) - this.aimS), Math.cos((this.aim ?? -Math.PI / 2) - this.aimS)) * 0.25;
+    // clignote quand il va repartir
+    const low = this.life < 3;
+    if (low && Math.sin(this.t * 24) < 0) ctx.globalAlpha = 0.45;
+    const inS = Math.min(1, this.inT * 3);
+    if (inS < 1) ctx.scale(inS, inS);
     drawDroneSculpt(ctx, this.id, this.col, this.t, 1, this.aimS, this.id === 'echo');
     ctx.globalAlpha = 1;
+    // jauge de temps restant sous le drone
+    baseT();
+    const k = Math.max(0, this.life / this.max), bw = 28, bx = this.x - bw / 2, by = this.y + 26;
+    ctx.fillStyle = 'rgba(4,2,16,0.8)'; ctx.fillRect(bx - 1, by - 1, bw + 2, 5);
+    ctx.fillStyle = k < 0.25 ? (Math.sin(this.t * 16) > 0 ? '#ff4f6e' : '#ff9aa8') : k < 0.5 ? '#ffd23f' : this.col;
+    ctx.fillRect(bx, by, bw * k, 3);
+    setT(this.x, this.y);
     if (this.id === 'egide') { for (let i = 0; i < this.charges; i++) { ctx.fillStyle = this.col; ctx.beginPath(); ctx.arc(-6 + i * 4, 21, 1.5, 0, TAU); ctx.fill(); } }
     baseT();
   }

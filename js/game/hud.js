@@ -61,15 +61,15 @@ export class Hud {
     if (lv > this.lastLv) { this.pFlash = 1; this.pFlashI = lv - 1; }
     this.lastLv = lv;
     this.pFlash = Math.max(0, (this.pFlash || 0) - 0.025);
-    const x0 = 50, y0 = top + 22, sw = 12.5, sh = 10.5, gap = 2.2, sk = 3.5;
-    const COLS = ['#ffe94a', '#ffc23d', '#ff9d3c', '#ff6a4f', '#ff3f8e', '#d65cff'];
+    const NL = 10, x0 = 50, y0 = top + 22, sw = 8.2, sh = 10.5, gap = 1.6, sk = 3;
+    const COLS = ['#ffe94a', '#ffd23f', '#ffb03d', '#ff8a3c', '#ff6a4f', '#ff3f8e', '#e94fff', '#a86bff', '#6a9dff', '#7df9ff'];
     const pul = 1 + this.pFlash * 0.12;
     ctx.save(); ctx.translate(x0, y0 + sh / 2); ctx.scale(pul, pul); ctx.translate(-x0, -(y0 + sh / 2));
     // socle
     ctx.fillStyle = 'rgba(8,4,24,0.72)';
-    ctx.beginPath(); ctx.moveTo(x0 - 4 + sk, y0 - 3); ctx.lineTo(x0 + 6 * (sw + gap) + 30 + sk, y0 - 3); ctx.lineTo(x0 + 6 * (sw + gap) + 30, y0 + sh + 3); ctx.lineTo(x0 - 4, y0 + sh + 3); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x0 - 4 + sk, y0 - 3); ctx.lineTo(x0 + NL * (sw + gap) + 30 + sk, y0 - 3); ctx.lineTo(x0 + NL * (sw + gap) + 30, y0 + sh + 3); ctx.lineTo(x0 - 4, y0 + sh + 3); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = 'rgba(255,190,90,0.45)'; ctx.lineWidth = 1; ctx.stroke();
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < NL; i++) {
       const x = x0 + i * (sw + gap);
       ctx.beginPath(); ctx.moveTo(x + sk, y0); ctx.lineTo(x + sw + sk, y0); ctx.lineTo(x + sw, y0 + sh); ctx.lineTo(x, y0 + sh); ctx.closePath();
       if (i < lv) {
@@ -83,13 +83,13 @@ export class Hud {
     }
     // halo des segments allumés
     ctx.globalCompositeOperation = 'lighter';
-    const gl = glow(lv >= 6 ? '#ff7af0' : '#ffb347', 16);
-    ctx.globalAlpha = 0.35 + 0.25 * Math.sin(this.t * 6) * (lv >= 6 ? 1 : 0.3) + this.pFlash * 0.6;
+    const gl = glow(lv >= NL ? '#7df9ff' : lv > 6 ? '#ff7af0' : '#ffb347', 16);
+    ctx.globalAlpha = 0.35 + 0.25 * Math.sin(this.t * 6) * (lv > 6 ? 1 : 0.3) + this.pFlash * 0.6;
     const wl = lv * (sw + gap);
     ctx.drawImage(gl.c, x0 - 8, y0 - 10, wl + 16, sh + 20);
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-    const lx = x0 + 6 * (sw + gap) + 15;
-    if (lv >= 6) txt('MAX', lx + 2, y0 + sh / 2 + 0.5, 10.5, hslHex((this.t * 200) % 360, 100, 72), 'center', 900);
+    const lx = x0 + NL * (sw + gap) + 15;
+    if (lv >= NL) txt('MAX', lx + 2, y0 + sh / 2 + 0.5, 10.5, hslHex((this.t * 200) % 360, 100, 72), 'center', 900);
     else txt('NV ' + lv, lx + 2, y0 + sh / 2 + 0.5, 10.5, '#ffe9a8', 'center', 900);
     ctx.restore();
     if (this.pFlash > 0.3) { ctx.globalCompositeOperation = 'lighter'; const g2 = glow('#ffffff', 16); const fx = x0 + this.pFlashI * (sw + gap) + sw / 2 + 2; ctx.globalAlpha = this.pFlash; ctx.drawImage(g2.c, fx - 26, y0 + sh / 2 - 26, 52, 52); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
@@ -178,6 +178,12 @@ export class Hud {
     // Messages
     this.drawMsgs();
     this.drawChain();
+    if (g.def.noWeapons && g.state === 'play') {
+      const yb = view.h - view.safeB - 70, a = 0.65 + 0.35 * Math.sin(this.t * 6);
+      ctx.fillStyle = 'rgba(40,0,10,0.75)'; ctx.fillRect(W / 2 - 130, yb - 13, 260, 26);
+      ctx.strokeStyle = rgba('#ff4f6e', a); ctx.lineWidth = 1.5; ctx.strokeRect(W / 2 - 130, yb - 13, 260, 26);
+      ctx.globalAlpha = a; txt('⚡ ARMES HORS SERVICE · ESQUIVE ! ⚡', W / 2, yb, 12, '#ffd0dc', 'center', 900); ctx.globalAlpha = 1;
+    }
     if (this.banner) this.drawBanner();
     if (this.ready) this.drawReady();
     if (this.warn > 0) this.drawWarning();
@@ -331,7 +337,7 @@ export class Hud {
     if (d.kind === 'challenge') sub = 'Défi : ' + CHALLENGES[d.challenge].name;
     if (d.trait) sub += ' · ' + TRAITS[d.trait].name;
     txt(sub.toUpperCase(), view.w / 2, y + 24, 12, '#ffd23f', 'center');
-    if (d.kind === 'challenge') txt(CHALLENGES[d.challenge].desc, view.w / 2, y + 40, 10, '#d8dcff', 'center', 600);
+    if (d.kind === 'challenge') txt(CHALLENGES[d.challenge].short || CHALLENGES[d.challenge].desc, view.w / 2, y + 40, 11, '#ffd0dc', 'center', 800);
     else if (d.trait) txt(TRAITS[d.trait].desc, view.w / 2, y + 40, 10, '#d8dcff', 'center', 600);
     ctx.globalAlpha = 1;
   }
