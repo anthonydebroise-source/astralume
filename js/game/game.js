@@ -79,7 +79,9 @@ const CLS_SIZE = { xs: 1, s: 1, m: 2, l: 3, g: 2, snake: 3 };
 // Rendu « pro » des aliens : contour sombre net + liseré lumineux, via un tampon hors écran
 const EB = makeCanvas(64, 64), EBg = EB.getContext('2d');
 const SB = makeCanvas(64, 64), SBg = SB.getContext('2d');
-const OUT = [[1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5], [1.05, 1.05], [-1.05, 1.05], [1.05, -1.05], [-1.05, -1.05]];
+const OUT8 = [[1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5], [1.05, 1.05], [-1.05, 1.05], [1.05, -1.05], [-1.05, -1.05]];
+const OUT4 = [[1.3, 1.3], [-1.3, 1.3], [1.3, -1.3], [-1.3, -1.3]];
+let OUT = OUT8;
 function drawEnemyPro(e) {
   const r = e.r * e.scale;
   const U = r * 3.4 + 8, px = Math.min(512, Math.ceil(U * view.rs));
@@ -502,6 +504,10 @@ export class Game {
       primary: true, elite: ev.elite && s.first, carrier: s.carrier, nova: ev.nova && s.last, rich: ev.rich, giant: ev.giant,
     });
     if (e && ev.flee) e.flee = true;
+    // grosses vagues : chaque alien tire un peu moins et rapporte un peu moins (le total reste généreux)
+    const big = (ev.n || 0) >= 10;
+    if (e) e.fm = s.fm || (big ? 0.8 : 1);
+    if (e && !e.elite) e.lootMul *= s.lm || (big ? 0.8 : 1);
   }
   startBoss(ev) {
     this.hud.warn = 2.6;
@@ -708,7 +714,7 @@ export class Game {
       const out = updatePath(e, dt, this) || e.gone;
       if (out) { e.dead = true; e.escaped = true; if (e.elite && e.primary && !e.ground) this.msg('L’élite s’est enfuie…', '#ffd23f', 14, 1.2); continue; }
       if (T.fire && !this.def.noFire && e.entered && !e.hidden && e.y > top + 12 && e.y < view.h * 0.72 && p.alive && this.state === 'play') {
-        e.fcd -= dt * this.D.fire * (e.elite ? 1.4 : 1);
+        e.fcd -= dt * this.D.fire * (e.elite ? 1.4 : 1) * (e.fm || 1);
         if (e.fcd <= 0 && (this.onHalf || e.fcd < -0.8)) {
           if (dist2(e.x, e.y, p.x, p.y) > 80 * 80) T.fire(e, this);
           e.fcd = T.rate * rand(0.85, 1.25);
@@ -869,6 +875,7 @@ export class Game {
       ctx.globalAlpha = 1;
     }
     const pro = view.adapt >= 0.7 && view.quality !== 'low';
+    OUT = this.enemies.length > 16 ? OUT4 : OUT8;
     for (const e of this.enemies) {
       if (e.dead || e.ground !== ground) continue;
       if (e.y < -80 || e.y > view.h + 80) continue;

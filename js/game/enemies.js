@@ -14,22 +14,59 @@ const TMP = { x: 0, y: 0 };
 const nfire = (g) => (g.def.noFire ? 0 : 1);
 
 // ============ VOLANTS ============
+const DK = new Map();
+const dk = (c, k = 0.55) => { const key = c + k; let v = DK.get(key); if (!v) { v = darken(c, k); DK.set(key, v); } return v; };
+// Œil reptilien (pupille fendue) qui suit le joueur
+function slitEye(c, x, y, r, e, open) {
+  const lx = e.data.lx || 0, ly = e.data.ly || 1;
+  c.save();
+  c.beginPath(); c.ellipse(x, y, r, r * open, 0, 0, TAU);
+  c.fillStyle = '#fff8ea'; c.fill();
+  c.clip();
+  const ix = x + lx * r * 0.32, iy = y + ly * r * 0.32;
+  c.fillStyle = e.c2; c.beginPath(); c.arc(ix, iy, r * 0.7, 0, TAU); c.fill();
+  c.fillStyle = rgba('#ffffff', 0.35); c.beginPath(); c.arc(ix, iy, r * 0.7, -2.6, -0.6); c.lineTo(ix, iy); c.fill();
+  c.fillStyle = '#07020f'; c.beginPath(); c.ellipse(ix, iy, r * 0.14, r * 0.52, 0, 0, TAU); c.fill();
+  c.fillStyle = '#ffffff'; c.beginPath(); c.arc(ix - r * 0.25, iy - r * 0.3, r * 0.15, 0, TAU); c.fill();
+  c.restore();
+  c.strokeStyle = dk(e.c1, 0.7); c.lineWidth = r * 0.16;
+  c.beginPath(); c.ellipse(x, y, r, r * open, 0, Math.PI + 0.25, -0.25); c.stroke();
+}
+const blinkOf = (e, t) => { const k = (t + e.seed * 1.7) % 3.8; return k < 0.14 ? Math.max(0.08, Math.abs(k - 0.07) / 0.07) : 1; };
+
 def('globule', {
   name: 'Globule', hp: 10, r: 13, coins: 1.2, rate: 2.8,
+  update(e, g) { const [lx, ly] = look(e, g); e.data.lx = lx; e.data.ly = ly; },
   draw(c, e, t) {
     const r = e.r;
-    blobPath(c, r, r * 0.92, t + e.seed, 0.09, 10, e.seed);
-    c.fillStyle = bodyGrad(c, e.c1, r); c.fill();
-    c.lineWidth = 1.6; c.strokeStyle = e.cg; c.stroke();
-    c.strokeStyle = rgba(e.cg, 0.6); c.lineWidth = 1.1; c.beginPath();
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * TAU + t * 0.6, k = 1.12 + 0.12 * Math.sin(t * 6 + i);
-      c.moveTo(Math.cos(a) * r * 0.98, Math.sin(a) * r * 0.98); c.lineTo(Math.cos(a) * r * k, Math.sin(a) * r * k);
+    // épines dorsales qui ondulent
+    c.strokeStyle = e.cg; c.lineWidth = 1.5; c.lineCap = 'round'; c.beginPath();
+    for (let i = 0; i < 7; i++) {
+      const a = -Math.PI / 2 + (i - 3) * 0.42, k = 1.22 + 0.1 * Math.sin(t * 6 + i);
+      c.moveTo(Math.cos(a) * r * 0.9, Math.sin(a) * r * 0.9); c.lineTo(Math.cos(a) * r * k, Math.sin(a) * r * k);
     }
     c.stroke();
-    const nx = Math.sin(t * 1.7 + e.seed) * r * 0.16, ny = Math.cos(t * 1.3) * r * 0.14;
-    c.fillStyle = e.c2; c.beginPath(); c.arc(nx, ny, r * 0.38, 0, TAU); c.fill();
-    c.fillStyle = '#ffffff'; c.beginPath(); c.arc(nx - r * 0.1, ny - r * 0.1, r * 0.13, 0, TAU); c.fill();
+    // petites pattes-tentacules
+    c.fillStyle = dk(e.c1, 0.35);
+    for (let i = 0; i < 3; i++) { tentacle(c, (i - 1) * r * 0.42, r * 0.7, Math.PI / 2 + (i - 1) * 0.35, r * 0.75, 2.3, t * 2.2, i * 1.4 + e.seed, 0.5, 5); c.fill(); }
+    // corps
+    blobPath(c, r, r * 0.92, t + e.seed, 0.07, 10, e.seed);
+    c.fillStyle = bodyGrad(c, e.c1, r); c.fill();
+    c.lineWidth = 1.6; c.strokeStyle = e.cg; c.stroke();
+    // carapace frontale sombre
+    c.fillStyle = dk(e.c1, 0.6);
+    c.beginPath(); c.moveTo(-r * 0.92, -r * 0.12); c.quadraticCurveTo(-r * 0.6, -r * 1.02, 0, -r * 0.98); c.quadraticCurveTo(r * 0.6, -r * 1.02, r * 0.92, -r * 0.12);
+    c.quadraticCurveTo(r * 0.4, -r * 0.62, 0, -r * 0.56); c.quadraticCurveTo(-r * 0.4, -r * 0.62, -r * 0.92, -r * 0.12); c.fill();
+    c.strokeStyle = rgba(e.cg, 0.8); c.lineWidth = 1; c.stroke();
+    // veines bioluminescentes
+    c.strokeStyle = rgba(e.cg, 0.4 + 0.3 * Math.sin(t * 4 + e.seed)); c.lineWidth = 1; c.beginPath();
+    for (const sd of [-1, 1]) { c.moveTo(sd * r * 0.3, r * 0.5); c.quadraticCurveTo(sd * r * 0.8, r * 0.45, sd * r * 0.82, r * 0.02); }
+    c.stroke();
+    // œil
+    slitEye(c, 0, -r * 0.08, r * 0.44, e, blinkOf(e, t));
+    // crocs
+    c.fillStyle = '#fff4e0';
+    c.beginPath(); c.moveTo(-r * 0.3, r * 0.42); c.lineTo(-r * 0.2, r * 0.72); c.lineTo(-r * 0.1, r * 0.44); c.moveTo(r * 0.1, r * 0.44); c.lineTo(r * 0.2, r * 0.72); c.lineTo(r * 0.3, r * 0.42); c.fill();
   },
   fire(e, g) { aimed(g, e.x, e.y + 6, 150, 1); },
 });
@@ -75,16 +112,34 @@ def('dardeur', {
 def('tournoyeur', {
   name: 'Tournoyeur', hp: 11, r: 12, coins: 1.2, rate: 3.3,
   init(e) { e.data.dir = chance(0.5) ? 1 : -1; },
-  update(e, g, dt) { e.face = (e.face || 0) + 2.6 * dt * e.data.dir; },
+  update(e, g, dt) { e.face = (e.face || 0) + 2.6 * dt * e.data.dir; const [lx, ly] = look(e, g); const a = -e.face, ca = Math.cos(a), sa = Math.sin(a); e.data.lx = lx * ca - ly * sa; e.data.ly = lx * sa + ly * ca; },
   draw(c, e, t) {
-    const r = e.r;
-    starPath(c, 5, r * 1.15, r * 0.48, 0, true);
-    c.fillStyle = bodyGrad(c, e.c1, r * 1.1, 't'); c.fill();
-    c.strokeStyle = e.cg; c.lineWidth = 1.5; c.stroke();
-    c.fillStyle = rgba(e.c2, 0.9);
-    for (let i = 0; i < 5; i++) { const a = (i / 5) * TAU - Math.PI / 2; c.beginPath(); c.arc(Math.cos(a) * r * 0.72, Math.sin(a) * r * 0.72, r * 0.13, 0, TAU); c.fill(); }
-    c.fillStyle = '#fff'; c.beginPath(); c.arc(0, 0, r * 0.3, 0, TAU); c.fill();
-    c.fillStyle = e.c2; c.beginPath(); c.arc(0, 0, r * 0.18, 0, TAU); c.fill();
+    const r = e.r, dir = e.data.dir || 1;
+    // lames incurvées (shuriken organique)
+    c.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * TAU;
+      const p = (ang, rad) => [Math.cos(ang) * rad, Math.sin(ang) * rad];
+      const [x0, y0] = p(a - 0.42 * dir, r * 0.5), [xc, yc] = p(a + 0.05 * dir, r * 1.0), [xt, yt] = p(a + 0.5 * dir, r * 1.34), [xb, yb] = p(a + 0.38 * dir, r * 0.62);
+      if (i === 0) c.moveTo(x0, y0); else c.lineTo(x0, y0);
+      c.quadraticCurveTo(xc, yc, xt, yt); c.quadraticCurveTo(xb * 1.15, yb * 1.15, ...p(a + 0.84 * dir, r * 0.5));
+    }
+    c.closePath();
+    c.fillStyle = bodyGrad(c, e.c1, r * 1.15, 't'); c.fill();
+    c.strokeStyle = e.cg; c.lineWidth = 1.4; c.stroke();
+    // anneau de carapace
+    c.beginPath(); c.arc(0, 0, r * 0.62, 0, TAU); c.fillStyle = dk(e.c1, 0.55); c.fill();
+    c.strokeStyle = rgba(e.cg, 0.85); c.lineWidth = 1.2; c.stroke();
+    // pointes lumineuses
+    const pul = 0.5 + 0.5 * Math.sin(t * 7 + e.seed);
+    c.fillStyle = rgba('#ffffff', 0.55 + pul * 0.45);
+    for (let i = 0; i < 5; i++) { const a = (i / 5) * TAU + 0.5 * dir; c.beginPath(); c.arc(Math.cos(a) * r * 1.22, Math.sin(a) * r * 1.22, r * 0.1, 0, TAU); c.fill(); }
+    c.fillStyle = e.c2;
+    for (let i = 0; i < 5; i++) { const a = (i / 5) * TAU + TAU / 10; c.beginPath(); c.arc(Math.cos(a) * r * 0.48, Math.sin(a) * r * 0.48, r * 0.07, 0, TAU); c.fill(); }
+    // œil central (ne tourne pas avec le corps)
+    c.save(); c.rotate(-(e.face || 0));
+    slitEye(c, 0, 0, r * 0.4, e, blinkOf(e, t));
+    c.restore();
   },
   fire(e, g) { ring(g, e.x, e.y, 5, 120, e.face - Math.PI / 2, 'needle'); },
 });

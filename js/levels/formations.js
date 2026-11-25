@@ -26,9 +26,11 @@ export function formationSpawns(ev) {
       const ty = hoverY();
       const stay = rng.range(3.5, 6);
       const exit = rng.pick(['down', 'up', 'down', side ? 'left' : 'right']);
+      const rows = n > 8 ? 2 : 1, per = Math.ceil(n / rows);
       for (let i = 0; i < n; i++) {
-        const tx = W * (i + 1) / (n + 1);
-        out.push({ d: i * 0.09, x: tx, y: -30, path: { k: 'hover', tx, ty: ty + (i % 2) * 14, inDur: 1.1, stay, exit, sway: 10 } });
+        const r = Math.floor(i / per), c = i % per, cnt = Math.min(per, n - r * per);
+        const tx = W * (c + 1 + (r ? 0.5 : 0)) / (per + 1) + (r ? 0 : W * (per - cnt) / (per + 1) / 2);
+        out.push({ d: c * 0.07 + r * 0.25, x: tx, y: -30 - r * 30, path: { k: 'hover', tx, ty: ty + (c % 2) * 12 + r * 40, inDur: 1.1, stay, exit, sway: 10 } });
       }
       break;
     }
@@ -45,11 +47,12 @@ export function formationSpawns(ev) {
       break;
     }
     case 'vee': {
-      const cx = W * rng.range(0.3, 0.7);
+      const km = Math.ceil((n - 1) / 2), dx = Math.min(34, (W * 0.42) / Math.max(1, km));
+      const cx = W * 0.5 + rng.range(-1, 1) * Math.max(0, W * 0.44 - km * dx);
       const spd = rng.range(85, 120);
       for (let i = 0; i < n; i++) {
         const k = Math.ceil(i / 2) * (i % 2 ? -1 : 1);
-        out.push({ d: 0, x: cx + k * 34, y: -30 - Math.abs(k) * 30, path: { k: 'dive', spd, amp: 18, f: 1.6, ph: 0 } });
+        out.push({ d: 0, x: cx + k * dx, y: -30 - Math.abs(k) * 28, path: { k: 'dive', spd, amp: 18, f: 1.6, ph: 0 } });
       }
       break;
     }
@@ -66,7 +69,7 @@ export function formationSpawns(ev) {
       break;
     }
     case 'grid': {
-      const cols = Math.min(4, Math.ceil(n / 2)), rows = Math.ceil(n / cols);
+      const cols = Math.min(n > 10 ? 6 : 5, Math.ceil(n / 2)), rows = Math.ceil(n / cols);
       const ty = top + H * 0.12, stay = rng.range(5, 7);
       let k = 0;
       for (let r = 0; r < rows; r++) for (let c = 0; c < cols && k < n; c++, k++) {
@@ -113,10 +116,42 @@ export function formationSpawns(ev) {
         : { k: 'hover', tx, ty: top + H * 0.2, inDur: 2, stay: rng.range(9, 12), exit: 'down', sway: 50 } });
       break;
     }
+    case 'swarm': { // Nuée : amas compact en nid d'abeille qui ondule puis éclate
+      const sp = 33, cells = [];
+      for (let ring = 0; cells.length < n; ring++) {
+        if (ring === 0) { cells.push([0, 0]); continue; }
+        for (let sdir = 0; sdir < 6; sdir++) for (let j = 0; j < ring; j++) {
+          const a0 = (sdir / 6) * Math.PI * 2, a1 = ((sdir + 2) / 6) * Math.PI * 2;
+          cells.push([Math.cos(a0) * ring * sp + Math.cos(a1) * j * sp, Math.sin(a0) * ring * sp * 0.86 + Math.sin(a1) * j * sp * 0.86]);
+        }
+      }
+      cells.length = n;
+      const maxR = Math.max(...cells.map(([x]) => Math.abs(x))) + 22;
+      const cx = W * rng.range(0.45, 0.55), cy = top + H * rng.range(0.2, 0.25) + 20;
+      const amp = Math.max(8, W / 2 - maxR - Math.abs(cx - W / 2) - 6);
+      const stay = ev.stay || rng.range(7, 9), dir = side ? 1 : -1;
+      for (let i = 0; i < n; i++) {
+        const [ox, oy] = cells[i], dl = Math.hypot(ox, oy) * 0.006 + i * 0.015;
+        out.push({ d: dl, x: cx + ox * 1.6, y: -40 - Math.abs(oy) - (n - i) * 2, fm: 0.42, lm: 0.7,
+          path: { k: 'flock', cx, cy, ox, oy, inDur: 1.6, stay, dd: dl, dir, amp } });
+      }
+      break;
+    }
+    case 'wall': { // Mur : rideau serré qui descend lentement — il faut s'y percer un passage
+      const rows = ev.rows || 2, cols = ev.cols || 7;
+      const spd = rng.range(34, 44);
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        const odd = r % 2 ? 0.5 : 0;
+        if (odd && c === cols - 1) continue;
+        const x0 = W * (c + 1 + odd) / (cols + 1);
+        out.push({ d: r * 1.1, x: x0, y: -30, fm: 0.5, lm: 0.75, type: (ev.types || [])[r], path: { k: 'dive', spd, amp: 9, f: 1.1, ph: 0, x0 } });
+      }
+      break;
+    }
     case 'armada': {
       const rows = ev.rows || 3, cols = ev.cols || 5;
       const types = ev.types || [ev.type];
-      const rowH = 44, top0 = top + 74, stay = ev.stay || 15;
+      const rowH = rows > 4 ? 40 : 44, top0 = top + 70, stay = ev.stay || 15;
       for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
         const odd = r % 2 ? 0.5 : 0;
         if (odd && c === cols - 1) continue;

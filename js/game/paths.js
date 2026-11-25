@@ -72,6 +72,25 @@ export function updatePath(e, dt, g) {
       }
       break;
     }
+    case 'flock': { // amas solidaire : dérive, respiration, rotation, puis éclatement
+      const T = p.t + p.dd;
+      const brk = p.t >= p.inDur + p.stay;
+      if (!brk) {
+        const ph = Math.min(1, T / 2.5);
+        const bx = p.cx + Math.sin(T * 0.55) * p.amp * p.dir * ph, by = p.cy + Math.sin(T * 0.8) * 16 * ph;
+        const k = 1 + 0.09 * Math.sin(T * 2.4), rot = 0.22 * Math.sin(T * 0.45);
+        const cr = Math.cos(rot), sr = Math.sin(rot);
+        const tx = bx + (p.ox * cr - p.oy * sr) * k, ty = by + (p.ox * sr + p.oy * cr) * k;
+        if (p.t < p.inDur) { const u = ease.outCubic(p.t / p.inDur); e.x = p.x0s + (tx - p.x0s) * u; e.y = p.y0s + (ty - p.y0s) * u; }
+        else { e.x = tx; e.y = ty; p.hovering = true; }
+      } else {
+        p.hovering = false;
+        if (p.vx === undefined) { const l = Math.hypot(p.ox, p.oy) || 1; p.vx = (p.ox / l) * 60; p.vy = 30 + (p.oy / l) * 40; }
+        const s = p.t - p.inDur - p.stay, acc = 1 + s * 2.2;
+        e.x += p.vx * acc * dt; e.y += (p.vy + s * 160) * dt;
+      }
+      break;
+    }
     case 'orbit': {
       const sx = p.cx + Math.cos(p.a) * p.r, sy = p.cy + Math.sin(p.a) * p.r;
       if (p.t < p.inDur) {

@@ -15,10 +15,10 @@ const FORMS = {
   snake: ['snake'],
 };
 const COUNT = {
-  line: [5, 7], column: [5, 8], vee: [5, 7], pincer: [6, 10], circle: [6, 8], rain: [6, 10], grid: [6, 9], sides: [4, 7], zig: [4, 6],
-  arc: [5, 7], loop: [5, 7], pair: [2, 2], single: [1, 1], snake: [1, 1],
+  line: [7, 11], column: [7, 11], vee: [7, 11], pincer: [10, 14], circle: [8, 12], rain: [10, 15], grid: [9, 14], sides: [6, 9], zig: [5, 8],
+  arc: [7, 10], loop: [7, 10], pair: [2, 2], single: [1, 1], snake: [1, 1],
 };
-const M_COUNT = { line: [2, 4], column: [3, 4], pair: [2, 2], arc: [3, 3], sides: [2, 4], rain: [3, 4], single: [1, 1], pincer: [4, 4] };
+const M_COUNT = { line: [3, 5], column: [3, 5], pair: [2, 2], arc: [3, 5], sides: [3, 5], rain: [4, 6], single: [1, 1], pincer: [4, 6] };
 
 export const TRAITS = {
   essaim: { name: 'Essaim', desc: 'Plus d’ennemis, mais plus fragiles' },
@@ -168,20 +168,38 @@ function buildWaves(def, rng, forced, full) {
   const events = W.theme.events;
   tl.push({ t: 0.3, kind: 'banner' });
   tl.push({ t: 1.4, kind: 'radio', key: def.trait ? 'trait' : 'start' });
-  const armadas = [];
+  const armadas = [], swarms = [], walls = [];
   if (full && def.L >= 3) armadas.push(Math.floor(nW * 0.42));
-  if (full && def.L >= 25) armadas.push(Math.floor(nW * 0.8));
+  if (full && def.L >= 12) armadas.push(Math.floor(nW * 0.8));
+  if (full && prog > 120 && rng.chance(0.5)) armadas.push(Math.floor(nW * 0.2));
+  if (full && def.L >= 5) swarms.push(Math.floor(nW * 0.62));
+  if (full && prog > 50 && rng.chance(0.5)) swarms.push(Math.floor(nW * 0.3));
+  if (full && def.L >= 8 && rng.chance(0.55)) walls.push(Math.floor(nW * 0.55) === swarms[0] ? Math.floor(nW * 0.7) : Math.floor(nW * 0.55));
+  const smalls = pool.filter((x) => CLS[x] === 's' && x !== 'mimique');
   for (let w = 0; w < nW; w++) {
     const intensity = nW > 1 ? w / (nW - 1) : 1;
     if (armadas.includes(w)) {
-      const smalls = pool.filter((x) => CLS[x] === 's');
       const front = smalls.length ? rng.pick(smalls) : 'globule';
-      const rows = def.L < 12 ? 2 : prog > 80 ? 4 : 3;
-      const cols = prog > 140 ? 6 : 5;
-      const types = [front, rng.pick(['canonnier', 'mortier']), rng.pick(['lanceur', 'canonnier']), rng.pick(['mortier', 'lanceur'])].slice(0, rows);
+      const front2 = smalls.length > 1 ? rng.pick(smalls.filter((x) => x !== front)) : front;
+      const rows = def.L < 12 ? 3 : prog > 140 ? 5 : 4;
+      const cols = prog > 100 ? 7 : 6;
+      const types = [front, front2, rng.pick(['canonnier', 'mortier']), rng.pick(['lanceur', 'canonnier']), rng.pick(['mortier', 'lanceur'])].slice(0, rows);
       tl.push({ t, kind: 'wave', form: 'armada', type: front, types, rows, cols, n: rows * cols, stay: 14 + rows, seed: rng.int(1, 1e9), carrier: true });
       tl.push({ t: t + 0.2, kind: 'radio', key: 'armada' });
-      t += 9;
+      t += 9.5;
+      continue;
+    }
+    if (swarms.includes(w) || walls.includes(w)) {
+      const sw = swarms.includes(w);
+      const type = rng.pick(['globule', 'globule', 'tournoyeur']);
+      const n = sw ? Math.round(rng.int(19, 25) * D.dens + Math.min(10, prog / 25)) : 0;
+      if (sw) tl.push({ t, kind: 'wave', type, form: 'swarm', n, seed: rng.int(1, 1e9), carrier: true });
+      else {
+        const rows = prog > 60 ? 3 : 2, types = rng.chance(0.5) ? ['globule', 'tournoyeur', 'globule'] : ['tournoyeur', 'globule', 'tournoyeur'];
+        tl.push({ t, kind: 'wave', type: types[0], types, form: 'wall', rows, cols: 7, n: rows * 7, seed: rng.int(1, 1e9), carrier: true });
+      }
+      tl.push({ t: t + 0.2, kind: 'radio', key: sw ? 'swarm' : 'armada' });
+      t += sw ? 10 : 8;
       continue;
     }
     const type = pickType(pool, lastT, rng, w === 0 && full);

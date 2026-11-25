@@ -135,17 +135,23 @@ export function rockSprite(seed, R, res, tintHex, rimHex) {
   const N = new Noise(seed);
   const tint = hexToRgb(tintHex), rim = hexToRgb(rimHex);
   const rad = (a) => 0.78 + 0.22 * N.fbm(Math.cos(a) * 1.3 + 4, Math.sin(a) * 1.3 + 4, 3);
-  const h = (x, y) => N.fbm(x * 2.2 + 9, y * 2.2, 5);
+  // cratères (dépressions à rebord) + relief doux : surface sculptée, sans grain
+  const cr = []; for (let i = 0; i < 7; i++) { const a = N.n(i * 3.1, 7.7) * 9, d = 0.15 + 0.55 * (0.5 + 0.5 * N.n(i * 1.7, 2.2)); cr.push([Math.cos(a) * d, Math.sin(a) * d, 0.12 + 0.14 * (0.5 + 0.5 * N.n(i, 5.5))]); }
+  const h = (x, y) => {
+    let v = 0.62 * N.fbm(x * 1.5 + 9, y * 1.5, 4) + 0.38 * N.fbm(x * 3.4 + 2, y * 3.4 + 5, 2);
+    for (const [cx, cy, r] of cr) { const q = Math.hypot(x - cx, y - cy) / r; if (q < 1) v -= 0.28 * (1 - q * q); else if (q < 1.35) v += 0.12 * (1 - (q - 1) / 0.35); }
+    return v;
+  };
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
     const nx = (x + 0.5 - c) / rr, ny = (y + 0.5 - c) / rr;
     const d = Math.hypot(nx, ny), a = Math.atan2(ny, nx), R0 = rad(a);
     if (d >= R0) continue;
     const q = d / R0, nz0 = Math.sqrt(Math.max(0, 1 - q * q));
     const e = 1.2 / rr, h0 = h(nx, ny), hx = h(nx + e, ny) - h0, hy = h(nx, ny + e) - h0;
-    let mx = nx / R0 - hx * 22, my = ny / R0 - hy * 22, mz = nz0 + 0.15; const l = Math.hypot(mx, my, mz); mx /= l; my /= l; mz /= l;
+    let mx = nx / R0 - hx * 11, my = ny / R0 - hy * 11, mz = nz0 + 0.15; const l = Math.hypot(mx, my, mz); mx /= l; my /= l; mz /= l;
     const shade = 0.05 + Math.max(0, mx * L[0] + my * L[1] + mz * L[2]) * 1.1;
     const back = Math.max(0, -(mx * L[0] + my * L[1])) * Math.pow(1 - nz0, 2) * 1.4;
-    const v = 0.7 + h0 * 0.5;
+    const v = 0.62 + h0 * 0.6;
     const i = (y * S + x) * 4;
     D[i] = Math.min(255, tint[0] * v * shade + rim[0] * back); D[i + 1] = Math.min(255, tint[1] * v * shade + rim[1] * back); D[i + 2] = Math.min(255, tint[2] * v * shade + rim[2] * back);
     D[i + 3] = 255 * Math.min(1, (R0 - d) * rr * 0.8);
@@ -235,7 +241,7 @@ export function monolithSprite(pal, seed, px) {
 const TERRAIN = {
   coral: { water: 0.5, stops: [[0, '#031a2e'], [0.35, '#07405a'], [0.5, '#138fa0'], [0.53, '#d8cc9e'], [0.6, '#a8986e'], [0.7, '#b84a6a'], [0.82, '#2a6a48'], [1, '#a8dcc8']], wcol: ['#032a44', '#18c8d8'] },
   swamp: { water: 0.45, stops: [[0, '#03110a'], [0.45, '#0c3424'], [0.5, '#3a3a18'], [0.62, '#2f5a22'], [0.8, '#4f8a2e'], [1, '#b8e070']], wcol: ['#061a12', '#3cff9a'] },
-  ice: { water: 0.34, stops: [[0, '#06204a'], [0.34, '#1a5aa8'], [0.42, '#6fb8ef'], [0.6, '#bfe6ff'], [0.8, '#e8f6ff'], [1, '#ffffff']], wcol: ['#041838', '#3fa8ff'] },
+  ice: { water: 0.34, bump: 0.8, stops: [[0, '#05183a'], [0.34, '#164a8a'], [0.42, '#4f9ad6'], [0.6, '#8cc6ea'], [0.8, '#bfe3f8'], [1, '#eaf8ff']], wcol: ['#041838', '#3fa8ff'] },
   lava: { water: 0.3, stops: [[0, '#1a0806'], [0.3, '#2a0f0a'], [0.36, '#3a2420'], [0.6, '#4a3a36'], [0.8, '#6a5c56'], [1, '#a89890']], wcol: ['#ff5a0a', '#fff2a0'], hot: true },
   dunes: { water: 0.3, stops: [[0, '#3a2210'], [0.3, '#5a3a18'], [0.45, '#a8743a'], [0.62, '#dca868'], [0.8, '#f2cc8a'], [1, '#fff0c8']], wcol: ['#0a2a3a', '#4adcff'] },
   mushroom: { water: 0.42, stops: [[0, '#0e0418'], [0.42, '#2a0c3a'], [0.5, '#3e1650'], [0.65, '#5a2a6a'], [0.82, '#7a4a8a'], [1, '#d8b8ff']], wcol: ['#1a0630', '#e86bff'] },
@@ -264,7 +270,7 @@ export class Terrain {
     let h = 0.5 + 0.55 * N.fbm(X * s + wx * 0.55, Y * s + wy * 0.55, 5);
     const k = this.kind;
     if (k === 'dunes') h = 0.42 + 0.3 * N.fbm(X * s * 0.6, Y * s * 0.6, 3) + 0.32 * Math.pow(1 - Math.abs(Math.sin(X * 0.045 + Y * 0.016 + wx * 5)), 3);
-    else if (k === 'ice') h = 0.55 + 0.45 * (N.ridge(X * s * 1.2, Y * s * 1.2, 4) - 0.55) * 1.4 + 0.15 * wx;
+    else if (k === 'ice') h = 0.52 + 0.3 * N.fbm(X * s * 0.8 + wx * 0.5, Y * s * 0.8 + wy * 0.5, 4) + 0.3 * (N.ridge(X * s * 0.55, Y * s * 0.55, 3) - 0.55) + 0.1 * (N.ridge(X * s * 1.7 + 4, Y * s * 1.7, 3) - 0.6);
     else if (k === 'lava') h = 0.5 + 0.5 * (N.ridge(X * s, Y * s, 5) - 0.5) * 1.5;
     else if (k === 'rock') { const Yc = ((Y % 40000) + 40000) % 40000; for (const [cx, cy, cr] of this.craters) { const dy = cy - Yc; if (dy > cr * 1.4 || dy < -cr * 1.4) continue; const d = Math.hypot(X - cx, dy) / cr; if (d < 1) h -= 0.22 * (1 - d * d); else if (d < 1.4) h += 0.12 * (1 - (d - 1) / 0.4); } }
     else if (k === 'flesh') h = 0.5 + 0.35 * N.fbm(X * s * 1.3, Y * s * 1.3, 4) + 0.18 * (N.ridge(X * s * 2.5, Y * s * 2.5, 3) - 0.5);
@@ -300,27 +306,38 @@ export class Terrain {
   shadeRow(ch, y) {
     if (y >= this.h) return;
     const w = this.w, w1 = w + 1, D = ch.img.data, H = ch.H, ramp = this.ramp, wr = this.wramp, T = this.T;
-    const water = T.water, ex = 22 * this.res * 2.2;
+    const water = T.water, ex = 22 * this.res * 2.2 * (T.bump || 1);
     const M = this.M, res = this.res, Y = ch.k * this.CH + this.CH - y / res;
     for (let x = 0; x < w; x++) {
       const h0 = H[y * w1 + x], hx = H[y * w1 + x + 1] - h0, hy = H[(y + 1) * w1 + x] - h0;
       const i = (y * w + x) * 4;
-      if (h0 < water) {
+      // rivage anti-crénelé : mélange eau/terre sur la largeur d'un texel
+      const gm = (Math.abs(hx) + Math.abs(hy)) * 0.7 + 1e-4;
+      const a = clamp((h0 - water) / gm + 0.5, 0, 1);
+      let wr0 = 0, wg0 = 0, wb0 = 0;
+      if (a < 1) {
         // liquide : lumineux, légèrement ondulé, sans ombrage
         const depth = clamp((water - h0) / 0.25, 0, 1);
         const shimmer = 0.5 + 0.5 * M.n(x * 0.15, Y * 0.04);
         const t = T.hot ? clamp(1 - depth * 0.7 + shimmer * 0.25, 0, 1) : clamp(0.35 - depth * 0.3 + shimmer * 0.25, 0, 1);
         const ci = ((t * 255) | 0) * 3;
-        D[i] = wr[ci]; D[i + 1] = wr[ci + 1]; D[i + 2] = wr[ci + 2]; D[i + 3] = 255;
-        continue;
+        wr0 = wr[ci]; wg0 = wr[ci + 1]; wb0 = wr[ci + 2];
+        // écume (ou croûte incandescente) le long du rivage
+        const fo = clamp(1 - (water - h0) / 0.035, 0, 1) * (0.55 + 0.45 * M.n(x * 0.6, Y * 0.25));
+        if (fo > 0) {
+          const k = fo * fo * 0.75;
+          if (T.hot) { wr0 += (255 - wr0) * k; wg0 += (215 - wg0) * k; wb0 += (120 - wb0) * k; }
+          else { wr0 += (225 - wr0) * k; wg0 += (248 - wg0) * k; wb0 += (255 - wb0) * k; }
+        }
+        if (a <= 0) { D[i] = wr0; D[i + 1] = wg0; D[i + 2] = wb0; D[i + 3] = 255; continue; }
       }
       let nx = -hx * ex, ny = -hy * ex; const l = Math.hypot(nx, ny, 1);
       const dot = (nx * L[0] + ny * L[1] + L[2]) / l;
-      const shade = 0.32 + Math.max(0, dot) * 0.95;
-      const ci = (clamp(h0, 0, 0.999) * 255 | 0) * 3;
-      // liseré de rivage
-      const shore = h0 < water + 0.025 ? 1.25 : 1;
-      D[i] = Math.min(255, ramp[ci] * shade * shore); D[i + 1] = Math.min(255, ramp[ci + 1] * shade * shore); D[i + 2] = Math.min(255, ramp[ci + 2] * shade * shore); D[i + 3] = 255;
+      const ci = (clamp(h0, water, 0.999) * 255 | 0) * 3;
+      // liseré de rivage (dégradé doux)
+      const shade = (0.32 + Math.max(0, dot) * 0.95) * (1 + 0.25 * clamp(1 - (h0 - water) / 0.03, 0, 1));
+      const lr = Math.min(255, ramp[ci] * shade), lg = Math.min(255, ramp[ci + 1] * shade), lb = Math.min(255, ramp[ci + 2] * shade);
+      D[i] = wr0 + (lr - wr0) * a; D[i + 1] = wg0 + (lg - wg0) * a; D[i + 2] = wb0 + (lb - wb0) * a; D[i + 3] = 255;
     }
   }
 }
