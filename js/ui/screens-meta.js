@@ -2,6 +2,7 @@
 import { h, btn, iconBtn, register, go, back, refresh, widget, modal, curBar, curIcon, costEl, rewardRow, rewardPopup, flyRewards, toast, confirmBox, ui } from './ui.js';
 import { SVG } from './icons.js';
 import { drawChest, drawWheel } from './art-ui.js';
+import { drawWheelLux } from './treasure-art.js';
 import { S, saveSoon, resetSave } from '../economy/save.js';
 import { SHIPS, SHIP_BY_ID, DRONES, DRONE_BY_ID, UPGRADES, RARITY, BOOSTS, CUR } from '../economy/data.js';
 import * as E from '../economy/economy.js';
@@ -290,7 +291,8 @@ function openFlow(id, free) {
   function showCard() {
     if (done) return;
     done = true;
-    const card = h('div', { class: 'rcard panel', style: `border-color:${R.color};box-shadow:0 0 30px ${R.color}55` },
+    const card = h('div', { class: 'rcard panel rar' + rar, style: `--rc:${R.color}` },
+      h('div', { class: 'rstars' }, '★'.repeat(rar + 1)),
       h('div', { class: 'rrar', style: `color:${R.color}` }, R.name),
       h('div', { class: 'rname', style: `color:${R.color}` }, item.title),
       h('div', { class: 'rdesc' }, item.desc),
@@ -310,6 +312,60 @@ function itemIcon(item, t) {
   else { c.rotate(t); c.fillStyle = '#ffffff'; c.strokeStyle = item.stat === 'dmg' ? '#ff4f6e' : item.stat === 'rate' ? '#38f2ff' : '#ffd23f'; c.lineWidth = 2.5; c.beginPath(); for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU; c.lineTo(Math.cos(a) * 13, Math.sin(a) * 13); } c.closePath(); c.fill(); c.stroke(); c.fillStyle = c.strokeStyle; c.beginPath(); c.arc(0, 0, 5, 0, TAU); c.fill(); }
 }
 
+// ================= SALLE DES TROPHÉES =================
+register('trophies', {
+  build() {
+    const shipsOwned = SHIPS.filter((x) => E.ownsShip(x.id)).length, dronesOwned = DRONES.filter((x) => E.ownsDrone(x.id)).length;
+    const bosses = Object.entries(S.trophyBoss || {});
+    const tot = SHIPS.length + DRONES.length, got = shipsOwned + dronesOwned;
+    const head = h('div', { class: 'tro-head' },
+      h('div', { class: 'tro-pct' }, h('b', null, Math.round((got / tot) * 100) + ' %'), h('small', null, 'COLLECTION')),
+      h('div', { class: 'tro-stats' }, h('div', null, h('b', null, `${shipsOwned}/${SHIPS.length}`), ' vaisseaux'), h('div', null, h('b', null, `${dronesOwned}/${DRONES.length}`), ' drones'), h('div', null, h('b', null, String(bosses.reduce((a, [, n]) => a + n, 0))), ' colosses vaincus'), h('div', null, h('b', null, String(S.best || 0).padStart(8, '0')), ' meilleur score')));
+    const shipGrid = h('div', { class: 'tro-grid' });
+    for (const sh of SHIPS) {
+      const own = E.ownsShip(sh.id), rar = RARITY[sh.rarity], ev = own ? E.evoLevel(sh.id) : 0;
+      const cv = h('div', { class: 'tro-cv' });
+      widget(cv, (r, t) => {
+        const cx = r.x + r.w / 2, cy = r.y + r.h * 0.48;
+        ctx.globalCompositeOperation = 'lighter';
+        // projecteur + socle
+        const gr = ctx.createLinearGradient(0, r.y, 0, cy + 30); gr.addColorStop(0, rgbaHex(own ? rar.color : '#5a6080', 0)); gr.addColorStop(1, rgbaHex(own ? rar.color : '#5a6080', 0.28));
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(cx - 10, r.y); ctx.lineTo(cx + 10, r.y); ctx.lineTo(cx + 40, cy + 30); ctx.lineTo(cx - 40, cy + 30); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = own ? rar.color : '#5a6080'; ctx.globalAlpha = 0.7; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.ellipse(cx, cy + 30, 34, 7, 0, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+        setT(cx, cy + Math.sin(t * 1.6 + sh.rarity) * 2, 1.15);
+        if (own) drawHypercar(ctx, sh.id, t, Math.sin(t * 0.8) * 0.2);
+        else { ctx.globalAlpha = 0.18; drawHypercar(ctx, sh.id, t, 0, { tier: 0, skin: 0 }); ctx.globalAlpha = 1; }
+        baseT();
+      });
+      shipGrid.append(h('div', { class: 'tro-card' + (own ? '' : ' locked'), style: `--c:${own ? rar.color : '#5a6080'}`, onclick: () => { sfx.ui(); hangarIdx = SHIPS.indexOf(sh); hangarTab = 'ships'; go('hangar'); } },
+        cv, h('b', { style: own ? `color:${sh.color}` : '' }, own ? sh.name : '???'),
+        h('small', null, own ? `${'★'.repeat(ev)}${'☆'.repeat(6 - ev)}` : `Niveau ${sh.req} · ${rar.name}`)));
+    }
+    const droneGrid = h('div', { class: 'tro-grid d' });
+    for (const d of DRONES) {
+      const own = E.ownsDrone(d.id);
+      const cv = h('div', { class: 'tro-cv' });
+      widget(cv, (r, t) => {
+        const cx = r.x + r.w / 2, cy = r.y + r.h * 0.5;
+        setT(cx, cy + Math.sin(t * 2) * 2, 1.1);
+        if (own) drawDroneIcon(ctx, d.id, t);
+        else { ctx.globalAlpha = 0.18; drawDroneIcon(ctx, d.id, t); ctx.globalAlpha = 1; }
+        baseT();
+      });
+      droneGrid.append(h('div', { class: 'tro-card' + (own ? '' : ' locked'), style: `--c:${own ? d.color : '#5a6080'}` }, cv, h('b', { style: own ? `color:${d.color}` : '' }, own ? d.name : '???'), h('small', null, own ? `Niv. ${S.drones[d.id].lvl} · ${E.droneDuration(d.id)} s` : `Niveau ${d.req}`)));
+    }
+    const bossRow = h('div', { class: 'tro-boss' });
+    const BN = { jelly: 'Méduse', crab: 'Crabe', flower: 'Fleur', eye: 'Œil', mantis: 'Mante', worm: 'Ver', heart: 'Cœur', dread: 'Cuirassé', ring: 'Forteresse', seraph: 'Séraphin' };
+    for (const [k, nm] of Object.entries(BN)) { const n = (S.trophyBoss || {})[k] || 0; bossRow.append(h('div', { class: 'tb' + (n ? '' : ' locked') }, h('span', null, n ? '🏆' : '🔒'), h('b', null, nm), h('small', null, n ? '×' + n : '—'))); }
+    return h('div', null, topbar('Trophées'), h('div', { class: 'scroll' }, head,
+      h('div', { class: 'subtitle' }, 'Vaisseaux'), shipGrid,
+      h('div', { class: 'subtitle' }, 'Drones'), droneGrid,
+      h('div', { class: 'subtitle' }, 'Colosses vaincus'), bossRow));
+  },
+});
+const rgbaHex = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
+
 // ================= ROUE =================
 register('wheel', {
   build() {
@@ -321,17 +377,25 @@ register('wheel', {
         const k = Math.min(1, (performance.now() - st.t0) / 1000 / st.dur);
         st.ang = st.from + (st.target - st.from) * ease.outCubic(k);
         const seg = Math.floor(st.ang / (TAU / WHEEL.length));
-        if (seg !== st.last) { st.last = seg; sfx.wheelTick(1 + (1 - k) * 0.3); }
-        if (k >= 1) { st.spinning = false; st.done && st.done(); }
+        if (seg !== st.last) { st.last = seg; st.tick = 1; sfx.wheelTick(1 + (1 - k) * 0.3); }
+        st.spin = 1 - k;
+        if (k >= 1) { st.spinning = false; st.spin = 0; st.done && st.done(); }
       }
-      const R = Math.min(r.w, r.h) * 0.4;
-      drawWheel(r.x + r.w / 2, r.y + r.h / 2, R, WHEEL, -st.ang, t, (i, c) => {
+      st.tick = Math.max(0, (st.tick || 0) - 0.12);
+      const R = Math.min(r.w, r.h) * 0.36;
+      drawWheelLux(r.x + r.w / 2, r.y + r.h / 2 + R * 0.06, R, WHEEL, -st.ang, t, (i, c) => {
         const s = WHEEL[i];
         const k = s.label.startsWith('Pièces') ? 'coins' : s.label.startsWith('Cristaux') ? 'crystals' : s.label === 'Composants' ? 'parts' : s.label === 'Gemmes' ? 'gems' : s.label === 'Boost' ? 'boost_power' : s.label === 'Coffre Néon' ? 'chest_neon' : s.label === 'Coffre Prisme' ? 'chest_prism' : 'nova';
-        ICONS[k](c, R * 0.085);
-        c.font = `800 ${R * 0.07}px "Avenir Next Condensed",system-ui,sans-serif`; c.textAlign = 'center'; c.fillStyle = '#ffffff';
-        c.fillText(s.label, 0, R * 0.17);
-      });
+        c.save(); c.translate(0, -R * 0.12);
+        if (s.label === 'Éclats') drawShard(c, R * 0.1, '#9fe8ff'); else ICONS[k](c, R * 0.1);
+        c.restore();
+        // libellé le long du rayon (lisible, sans chevauchement)
+        c.save(); c.translate(0, R * 0.2); c.rotate(-Math.PI / 2);
+        c.font = `900 ${R * 0.072}px "Avenir Next Condensed",system-ui,sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.lineWidth = R * 0.022; c.strokeStyle = 'rgba(0,0,0,0.75)'; c.strokeText(s.label.toUpperCase(), 0, 0);
+        c.fillStyle = s.label === 'JACKPOT' ? '#fff3b0' : '#ffffff'; c.fillText(s.label.toUpperCase(), 0, 0);
+        c.restore();
+      }, st.spin || 0, st.tick || 0);
     });
     const cost = wheelCost();
     const label = cost === null ? 'Tourner (gratuit)' : cost === false ? 'Revenez demain' : h('span', null, 'Tourner  ', costEl(cost));

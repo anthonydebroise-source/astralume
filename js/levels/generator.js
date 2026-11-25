@@ -322,4 +322,62 @@ function buildChallenge(def, rng) {
   }
 }
 
+// ================= MODES SPÉCIAUX =================
+const BOSS_POOL = ['jelly', 'crab', 'flower', 'eye', 'mantis', 'worm', 'dread', 'ring', 'seraph', 'heart'];
+function modeDef(L, mode, name, code) {
+  const def = buildLevel(L, 0);
+  def.timeline = [{ t: 0.3, kind: 'banner' }];
+  def.mode = mode; def.kind = 'normal'; def.kindName = name; def.code = code; def.trait = null; def.planet = false;
+  return def;
+}
+// Survie infinie : vagues sans fin, de plus en plus coriaces (morceaux de 12 vagues ajoutés au fil du jeu)
+export function buildEndless(Lbase, seed = Date.now()) {
+  const def = modeDef(Math.max(5, Lbase), 'endless', 'Survie infinie', 'V1');
+  def.endlessSeed = seed >>> 0; def.endlessK = 0;
+  def.timeline.push(...endlessChunk(def, 2.5, 0));
+  def.duration = 9999;
+  return def;
+}
+export function endlessChunk(def, t0, k) {
+  const tmp = { ...def, timeline: [], D: { ...def.D, prog: def.D.prog + k * 18, dens: def.D.dens * (1 + k * 0.08) }, L: def.L + k * 6, trait: null };
+  buildWaves(tmp, new RNG(hash32(def.endlessSeed, k)), 12, true);
+  return tmp.timeline.filter((e) => e.kind === 'wave' || e.kind === 'event' || (e.kind === 'radio' && e.key !== 'start' && e.key !== 'trait')).map((e) => ({ ...e, t: e.t + t0, chunk: k }));
+}
+// Ruée des colosses : cinq colosses à la suite
+export function buildBossRush(Lbase, seed = Date.now()) {
+  const def = modeDef(Math.max(10, Lbase), 'rush', 'Ruée des colosses', 'RUSH');
+  const rng = new RNG(seed >>> 0);
+  const pool = rng.shuffle(BOSS_POOL.slice(0, 9));
+  def.rush = pool.slice(0, 5).map((arch, i) => ({ kind: 'boss', arch, mini: false, tier: Math.min(3, i), name: `${ARCH_NAMES[arch]} ${EPITHETS[(i * 5 + 3) % EPITHETS.length]}` }));
+  def.bossMusic = 'boss';
+  def.timeline.push({ t: 1.4, kind: 'radio', key: 'boss' });
+  def.duration = 9999;
+  return def;
+}
+// Événement de la semaine : un secteur spécial qui change chaque semaine
+export const WEEKLY = [
+  { id: 'or', name: 'Pluie d’or', desc: 'Butin ×2 et comètes dorées à volonté.', icon: '🪙' },
+  { id: 'nuee', name: 'Nuée géante', desc: 'Des parades et des nuées deux fois plus denses.', icon: '👾' },
+  { id: 'elites', name: 'Élites en folie', desc: 'Les élites dorées pullulent : gemmes garanties.', icon: '👑' },
+  { id: 'colosse', name: 'Colosse doré', desc: 'Un colosse surpuissant garde un coffre astral.', icon: '🐉' },
+];
+export function weekIndex(day) { return Math.floor((day + 3) / 7); }
+export function buildWeekly(Lbase, wk) {
+  const ev = WEEKLY[wk % WEEKLY.length];
+  const L = Math.max(6, Math.min(320, Lbase));
+  const def = buildLevel(L, 0);
+  def.mode = 'weekly'; def.weekly = ev.id; def.code = 'EVT'; def.kindName = 'Événement : ' + ev.name; def.trait = null;
+  const rng = new RNG(hash32(wk, 4242));
+  def.timeline = [];
+  if (ev.id === 'nuee') { def.D.dens *= 1.6; }
+  if (ev.id === 'or') { def.D.loot *= 2; }
+  buildWaves(def, rng, 0, true);
+  if (ev.id === 'or') for (let i = 0; i < 3; i++) def.timeline.push({ t: 12 + i * 30, kind: 'event', id: 'goldcomet' });
+  if (ev.id === 'elites') def.timeline.forEach((e) => { if (e.kind === 'wave' && rng.chance(0.45)) e.elite = true; });
+  if (ev.id === 'colosse') { def.timeline = def.timeline.filter((e) => e.kind !== 'end'); def.timeline.splice(Math.floor(def.timeline.length * 0.5)); addBoss(def, rng, false); def.timeline[def.timeline.length - 1].tier = 3; def.bossMusic = 'boss2'; def.kind = 'boss'; }
+  def.timeline.sort((a, b) => a.t - b.t);
+  def.duration = def.timeline.length ? def.timeline[def.timeline.length - 1].t + 6 : 60;
+  return def;
+}
+
 export { WORLDS };

@@ -17,6 +17,7 @@ import { Hud } from './hud.js';
 import { makePickup, updatePickups, drawPickups, PK } from './pickups.js';
 import { explode, hitSpark, deflect, sparkle, cancelPop } from './fx.js';
 import { formationSpawns, coinPattern } from '../levels/formations.js';
+import { endlessChunk } from '../levels/generator.js';
 import { radioLine } from './radio.js';
 import { S } from '../economy/save.js';
 import { dronePower, ownsShip, ownsDrone } from '../economy/economy.js';
@@ -168,6 +169,8 @@ export class Game {
     this.wind = def.trait === 'vent' ? (Math.random() < 0.5 ? -1 : 1) * 55 : 0;
     clearParticles();
     this.capPlan = o.noCapsules ? [] : this.makeCapPlan();
+    this.waveN = 0; this.rushKills = 0;
+    if (def.mode === 'rush') { this.rushQ = def.rush.slice(); this.rushN = 0; this.rushWait = false; for (const b of this.rushQ) prebakeBoss(this, b.arch, false); }
     // pré-rendu des pièces du boss (évite un à-coup à son arrivée)
     for (const ev of this.tl) if (ev.kind === 'boss') prebakeBoss(this, ev.arch, ev.mini);
     music.play(def.music, true);
@@ -268,6 +271,26 @@ export class Game {
     sfx.energy();
     this.msg(c.kind === 'shipcap' ? 'CAPSULE DE RENFORT !' : 'CAPSULE DE DRONE !', c.kind === 'shipcap' ? '#ffffff' : '#38f2ff', 18, 1.6);
     if (opts.length > 1) this.later(1.2, () => this.msg('Son contenu change : attrape-la au bon moment !', '#d8dcff', 12, 2));
+  }
+  // Modes spéciaux : survie infinie (vagues ajoutées sans fin) et ruée des colosses
+  updateModes() {
+    const d = this.def;
+    if (this.state !== 'play') return;
+    if (d.mode === 'endless' && this.ti >= this.tl.length - 2) {
+      const last = this.tl.length ? this.tl[this.tl.length - 1].t : this.dirT;
+      d.endlessK++;
+      this.tl.push(...endlessChunk(d, Math.max(last, this.dirT) + 4, d.endlessK));
+      this.D = Object.assign({}, this.D, { hp: this.D.hp * 1.14, fire: this.D.fire * 1.05, loot: this.D.loot * 1.05 });
+      this.later(2, () => this.msg('MENACE NIVEAU ' + (d.endlessK + 1) + ' !', '#ff8aa8', 20, 1.6));
+    }
+    if (d.mode === 'rush' && !this.boss && !this.rushWait && this.dirT > 3) {
+      if (this.rushQ.length) {
+        this.rushWait = true; this.rushN++;
+        this.msg('COLOSSE ' + this.rushN + ' / ' + d.rush.length, '#ffd23f', 24, 2);
+        d.code = this.rushN + '/' + d.rush.length;
+        this.startBoss(this.rushQ.shift());
+      } else if (!this.timelineDone && this.bossDead) this.timelineDone = true;
+    }
   }
   addDrone(id) {
     const same = this.drones.find((d) => d.id === id);
@@ -576,6 +599,7 @@ export class Game {
       case 'banner': this.hud.showBanner(); break;
       case 'radio': this.radio(ev.key); break;
       case 'wave': case 'ground': {
+        if (this.def.mode === 'endless' && ev.kind === 'wave' && ev.type !== 'asteroide') { this.waveN++; this.def.code = 'V' + this.waveN; }
         const specs = formationSpawns(ev);
         const luckCarrier = ['power', 'power', 'shield', 'energy', 'magnet'][Math.floor(Math.random() * 5)];
         specs.forEach((s, i) => {
@@ -622,7 +646,7 @@ export class Game {
     this.later(1.8, () => { if (this.def.bossMusic || !ev.mini) music.play(this.def.bossMusic || 'boss', true); music.setIntensity(1); });
     this.later(2.2, () => {
       this.boss = new Boss(this, ev.arch, { mini: ev.mini, tier: ev.tier, name: ev.name || 'Colosse' });
-      this.bossT = 0;
+      this.bossT = 0; this.rushWait = false; this.bossDead = false;
       sfx.roar(); addShake(0.4);
       this.msg(this.boss.name, '#ff8aa8', 24, 2.2, true);
     });
@@ -638,7 +662,8 @@ export class Game {
     this.addScore((b.mini ? 20000 : 50000) * (1 + b.tier * 0.5) * (1 + this.diff * 0.5), x, y, true);
     this.radio('constel');
     this.bossDead = true;
-    this.later(3.2, () => { this.boss = null; this.timelineDone = true; });
+    this.rushKills++;
+    this.later(3.2, () => { this.boss = null; if (this.def.mode !== 'rush') this.timelineDone = true; else this.dirT = 0.5; });
   }
   playerDied() {
     this.state = 'dying'; this.endT = 0;
@@ -746,6 +771,7 @@ export class Game {
   updateWorld(dt) {
     this.bg.update(dt);
     this.director(dt);
+    this.updateModes();
     this.updateCapsules();
     this.events.update(dt);
     this.buildTargets();

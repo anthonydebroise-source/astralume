@@ -12,7 +12,8 @@ import { checkAchievements } from './economy/achievements.js';
 import { DIFFS, SHIPS } from './economy/data.js';
 import { SHARD_COLORS } from './game/art.js';
 for (const sh of SHIPS) SHARD_COLORS[sh.id] = sh.color;
-import { buildLevel } from './levels/generator.js';
+import { buildLevel, buildEndless, buildBossRush, buildWeekly, weekIndex, WEEKLY } from './levels/generator.js';
+import { dayNumber } from './engine/math.js';
 import { Game } from './game/game.js';
 import { app } from './app.js';
 import { ui, go, show, clearScreens, menuUpdate, menuDraw, initUINotifications } from './ui/ui.js';
@@ -49,10 +50,67 @@ app.startLevel = (L, diff, boosts = {}) => {
   lastLevel = { L, diff };
   if (def.kind === 'challenge') setTimeout(() => { if (app.game === g) briefingMenu(g); }, 350);
 };
-app.restart = () => { if (lastLevel) { const g = app.game; if (g) g.quit(); app.startLevel(lastLevel.L, lastLevel.diff, {}); } };
+// Modes spéciaux (survie infinie, ruée des colosses, événement de la semaine)
+app.startMode = (mode) => {
+  ensureAudio(); clearScreens(); resetInput(); clearParticles();
+  const Lb = Math.min(320, S.maxLevel);
+  const def = mode === 'endless' ? buildEndless(Lb) : mode === 'rush' ? buildBossRush(Lb) : buildWeekly(Lb, weekIndex(dayNumber()));
+  const g = new Game(def, { ship: 'etincelle', drones: [], boosts: {} });
+  g.onEnd = (res) => endLevel(res);
+  g.onDeath = (game) => { if (def.mode === 'endless') setTimeout(() => game.finish(false), 900); else continueMenu(game); };
+  g.onPause = () => pauseMenu(g);
+  app.game = g;
+  lastLevel = { mode };
+};
+app.restart = () => { if (lastLevel) { const g = app.game; if (g) g.quit(); if (lastLevel.mode) app.startMode(lastLevel.mode); else app.startLevel(lastLevel.L, lastLevel.diff, {}); } };
 app.quitToMenu = () => { if (app.game) app.game.quit(); app.game = null; clearParticles(); go('hub', {}, false); };
 
+function endMode(res) {
+  const g = app.game, def = res.def, st = res.stats, victory = res.victory;
+  const got = { coins: Math.round(st.coins), crystals: st.crystals, gems: st.gems, parts: st.parts };
+  const bonus = { coins: 0, crystals: 0, gems: 0, parts: 0 };
+  let chest = null, shardsN = 0, line = '';
+  if (!S.modeBest) S.modeBest = {};
+  const best = S.modeBest[def.mode] || { score: 0, n: 0 };
+  if (def.mode === 'endless') {
+    const w = g.waveN;
+    bonus.coins = w * 40; bonus.crystals = Math.floor(w / 3) * 2; bonus.gems = Math.floor(w / 15); shardsN = Math.floor(w / 5) * 2;
+    if (w >= 30) chest = 'prism';
+    line = `Vague atteinte : ${w}` + (w > best.n ? ' · NOUVEAU RECORD !' : ` · record ${best.n}`);
+    best.n = Math.max(best.n, w);
+  } else if (def.mode === 'rush') {
+    const k = g.rushKills;
+    bonus.crystals = 12 * k; bonus.gems = 2 * k; shardsN = 4 * k; bonus.coins = 300 * k;
+    if (k >= def.rush.length) chest = 'astral';
+    line = `Colosses vaincus : ${k} / ${def.rush.length}`;
+    best.n = Math.max(best.n, k);
+  } else {
+    const wk = weekIndex(dayNumber());
+    if (!S.weekly) S.weekly = {};
+    if (victory && S.weekly.wk !== wk) { S.weekly.wk = wk; chest = 'astral'; bonus.gems = 10; line = 'Événement terminé : coffre astral gagné !'; }
+    else line = victory ? 'Événement déjà gagné cette semaine' : 'Retente ta chance !';
+    bonus.coins = victory ? 500 : 0;
+  }
+  const score = Math.round(st.score || 0), prevHi = best.score, record = score > prevHi;
+  best.score = Math.max(best.score, score);
+  S.modeBest[def.mode] = best;
+  S.best = Math.max(S.best || 0, score);
+  const total = {};
+  for (const k of ['coins', 'crystals', 'gems', 'parts']) total[k] = got[k] + bonus[k];
+  if (chest) total.chest = chest;
+  if (shardsN) total.shards = { [S.ship]: shardsN };
+  grant(total);
+  track('kills', st.kills); track('coins', got.coins);
+  const xp = Math.round(20 + st.kills * 0.4);
+  const lvlFrom = S.pilot.lvl, xpFrom = S.pilot.xp / xpNeeded(S.pilot.lvl);
+  const levelUps = addXP(xp);
+  const xpTo = S.pilot.lvl > lvlFrom ? 1 : S.pilot.xp / xpNeeded(S.pilot.lvl);
+  checkAchievements(); save();
+  app.game = null; clearParticles();
+  show('results', { victory: def.mode === 'endless' ? true : victory, stars: 0, def, stats: st, got, bonus, first: false, chest, newStarCrystals: 0, shardsN, shardShip: S.ship, score, prevHi, record, rank: null, modeLine: line, xp, lvlFrom, xpFrom, xpTo, levelUps });
+}
 function endLevel(res) {
+  if (res.def.mode) { endMode(res); return; }
   const g = app.game;
   const def = res.def, st = res.stats, d = def.diff, L = def.L;
   const victory = res.victory;
@@ -88,6 +146,8 @@ function endLevel(res) {
   total.crystals += newStarCrystals;
   if (chest) total.chest = chest;
   grant(total);
+  // Salle des trophées : colosses vaincus
+  if (victory && (def.kind === 'boss' || def.kind === 'miniboss')) { if (!S.trophyBoss) S.trophyBoss = {}; const a = def.kind === 'boss' ? def.world.boss : def.world.mini; S.trophyBoss[a] = (S.trophyBoss[a] || 0) + 1; }
   // Score arcade : record du secteur, meilleur score, rang
   if (!S.hi) S.hi = {};
   const score = Math.round(st.score || 0), prevHi = S.hi[L] || 0;

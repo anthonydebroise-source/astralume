@@ -450,3 +450,48 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px;
 .boostcard em { font-style: normal; font-size: 10.5px; font-weight: 800; margin-top: 2px; }
 .boostcard em.on { color: #47ffa3; }
 .boostcard.on { box-shadow: inset 0 0 0 2px #47ffa3, 0 0 12px rgba(71,255,163,.35); }
+
+/* ---- Révélation de butin ---- */
+.reveal .rcard { position: relative; overflow: hidden; border: 0 !important; background: linear-gradient(180deg, color-mix(in srgb, var(--rc) 28%, #120a30), #0a0620 70%); box-shadow: inset 0 0 0 2px var(--rc), 0 0 34px color-mix(in srgb, var(--rc) 55%, transparent) !important; }
+.reveal .rcard::after { content: ''; position: absolute; inset: -40% -60%; background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,.28) 50%, transparent 60%); animation: cardShine 2.4s ease-in-out infinite; pointer-events: none; }
+@keyframes cardShine { 0% { transform: translateX(-60%); } 60%, 100% { transform: translateX(60%); } }
+.reveal .rstars { font-size: 22px; letter-spacing: 4px; color: #ffd23f; text-shadow: 0 0 10px #ffb347; margin-bottom: 2px; }
+.reveal .rcard.rar3 { background: linear-gradient(180deg, rgba(255,194,61,.35), #120a20 75%); }
+.reveal .rcard.rar3 .rname { background: linear-gradient(90deg, #ff4fd8, #ffd23f, #38f2ff, #ff4fd8); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: recShine 1.4s linear infinite; }
+.chest .cv { height: 118px !important; }
+.wheel-stage { min-height: 360px; }
+
+/* ---- Salle des trophées ---- */
+.tro-head { display: flex; align-items: center; gap: 14px; padding: 12px; border-radius: 18px; background: linear-gradient(180deg, rgba(60,40,10,.75), rgba(20,10,4,.85)); box-shadow: inset 0 0 0 1px rgba(255,200,90,.5), 0 0 18px rgba(255,180,60,.2); }
+.tro-pct { width: 84px; height: 84px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(255,210,63,.25), rgba(0,0,0,0) 70%); box-shadow: inset 0 0 0 3px #ffd23f, 0 0 16px rgba(255,190,60,.5); font-family: var(--fc); }
+.tro-pct b { font-size: 24px; font-weight: 900; color: #fff; }
+.tro-pct small { font-size: 9px; letter-spacing: .14em; color: #ffd23f; font-weight: 800; }
+.tro-stats { flex: 1; display: grid; gap: 3px; font-size: 12.5px; color: #f0e6cc; }
+.tro-stats b { font-family: var(--fc); font-weight: 900; color: #ffd23f; font-size: 14px; }
+.tro-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.tro-grid.d { grid-template-columns: repeat(3, 1fr); }
+.tro-card { position: relative; display: flex; flex-direction: column; align-items: center; padding: 6px 4px 8px; border-radius: 16px; background: linear-gradient(180deg, rgba(10,6,28,.2), rgba(10,6,28,.85)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 60%, transparent), 0 0 14px color-mix(in srgb, var(--c) 20%, transparent); cursor: pointer; }
+.tro-card .tro-cv { width: 100%; height: 108px; }
+.tro-grid.d .tro-card .tro-cv { height: 70px; }
+.tro-card b { font-family: var(--fc); font-weight: 900; font-size: 14px; letter-spacing: .06em; text-transform: uppercase; }
+.tro-card small { font-size: 11px; color: #ffd23f; letter-spacing: .1em; }
+.tro-card.locked b { color: #6a7090; }
+.tro-card.locked small { color: #8088a8; letter-spacing: 0; }
+.tro-boss { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.tb { display: flex; flex-direction: column; align-items: center; padding: 6px 2px; border-radius: 12px; background: rgba(255,210,63,.1); box-shadow: inset 0 0 0 1px rgba(255,210,63,.4); font-family: var(--fc); }
+.tb span { font-size: 20px; }
+.tb b { font-size: 10px; font-weight: 900; text-transform: uppercase; color: #ffe9a8; }
+.tb small { font-size: 10px; color: #fff; }
+.tb.locked { background: rgba(255,255,255,.04); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
+.tb.locked b { color: #6a7090; }
+
+/* ---- Modes de jeu ---- */
+.mode-card { display: flex; gap: 10px; align-items: stretch; margin-bottom: 10px; padding: 10px; border-radius: 18px; background: linear-gradient(135deg, color-mix(in srgb, var(--c) 22%, rgba(18,10,48,.55)), rgba(10,6,32,.72) 70%); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--c) 70%, transparent), 0 0 18px color-mix(in srgb, var(--c) 25%, transparent); }
+.mode-art { width: 110px; flex-shrink: 0; border-radius: 12px; background: transparent; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); min-height: 130px; }
+.mode-body { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.mode-body b { font-family: var(--fc); font-weight: 900; font-style: italic; font-size: 17px; letter-spacing: .04em; color: var(--c); text-shadow: 0 0 10px color-mix(in srgb, var(--c) 60%, transparent); }
+.mode-body small { font-family: var(--fc); font-weight: 800; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #fff; }
+.mode-body p { margin: 2px 0; font-size: 12.5px; line-height: 1.3; color: #d8dcff; }
+.mode-rec { font-size: 11.5px; font-weight: 800; color: #ffd23f; margin-bottom: 4px; }
+.mode-body .btn { align-self: flex-start; }
+.mode-card.locked { filter: saturate(.4) brightness(.75); }

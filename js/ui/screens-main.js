@@ -11,7 +11,8 @@ import { calendarIndex, calendarReward, claimDaily, missionsBadge, weekBonus } f
 import { achBadge } from '../economy/achievements.js';
 import { wheelCost } from '../economy/gacha.js';
 import { WORLDS } from '../levels/worlds.js';
-import { levelInfo, KIND_NAMES, TRAITS, CHALLENGES } from '../levels/generator.js';
+import { levelInfo, KIND_NAMES, TRAITS, CHALLENGES, WEEKLY, weekIndex } from '../levels/generator.js';
+import { dayNumber } from '../engine/math.js';
 import { TICKER } from '../game/radio.js';
 import { SHIP_FX } from '../game/ships.js';
 import { ctx, setT, baseT, view } from '../engine/renderer.js';
@@ -77,7 +78,10 @@ register('hub', {
       h('div', { class: 'wname' }, `Monde ${W.w + 1} · ${info.code}`),
       h('div', { class: 'wtitle', style: `color:${W.pal.neb2}` }, W.name),
       btn(SVG.play.replace('<svg', '<svg style="width:22px;height:22px"') + ` JOUER ${info.code}`, 'primary big pulse', () => levelSheet(L)),
-      h('button', { class: 'btn ghost small', style: 'margin-top:10px', onclick: () => { sfx.ui(); go('map'); } }, h('span', { html: SVG.map, style: 'width:16px;display:inline-flex' }), 'Carte des mondes', starRewardsAvailable() ? h('span', { class: 'badge', style: 'position:static;margin-left:4px' }, '★') : null));
+      h('div', { class: 'row', style: 'gap:8px;margin-top:10px;justify-content:center' },
+        h('button', { class: 'btn ghost small', onclick: () => { sfx.ui(); go('map'); } }, h('span', { html: SVG.map, style: 'width:16px;display:inline-flex' }), 'Carte', starRewardsAvailable() ? h('span', { class: 'badge', style: 'position:static;margin-left:4px' }, '★') : null),
+        h('button', { class: 'btn ghost small', onclick: () => { sfx.ui(); go('modes'); } }, '🎮 Modes'),
+        h('button', { class: 'btn ghost small', onclick: () => { sfx.ui(); go('trophies'); } }, '🏆 Trophées')));
     const badge = (n) => (n > 0 ? h('div', { class: 'badge' }, n) : null);
     const wc = wheelCost();
     const big = [
@@ -283,6 +287,60 @@ export function pauseMenu(game) {
       btn('Quitter le niveau', 'ghost', () => { m.close(); game.paused = false; game.finish(false); }))], { dismiss: false });
 }
 
+// ================= MODES DE JEU =================
+register('modes', {
+  build() {
+    const B = S.modeBest || {}, Lm = S.maxLevel;
+    const wk = weekIndex(dayNumber()), ev = WEEKLY[wk % WEEKLY.length];
+    const daysLeft = 7 - ((dayNumber() + 3) % 7);
+    const card = (id, title, sub, desc, rec, req, art, col, extra) => {
+      const locked = Lm < req;
+      const cv = h('div', { class: 'mode-art' });
+      widget(cv, (r, t) => art(r, t));
+      return h('div', { class: 'mode-card' + (locked ? ' locked' : ''), style: `--c:${col}` },
+        cv, h('div', { class: 'mode-body' }, h('b', null, title), h('small', null, sub), h('p', null, desc), rec ? h('div', { class: 'mode-rec' }, rec) : null, extra || null,
+          locked ? h('div', { class: 'muted small' }, `Débloqué au niveau ${req}`) : btn('JOUER', 'primary', () => { sfx.open(); app.startMode(id); })));
+    };
+    const warp = (r, t) => {
+      const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 40; i++) { const a = i * 2.39996, z = ((t * 0.35 + i / 40) % 1), d = z * z * r.w * 0.7; ctx.strokeStyle = i % 3 ? '#38f2ff' : '#ff4fd8'; ctx.globalAlpha = z; ctx.lineWidth = 0.5 + z * 1.5; ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * d * 0.7, cy + Math.sin(a) * d * 0.7); ctx.lineTo(cx + Math.cos(a) * d, cy + Math.sin(a) * d); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.beginPath();
+      for (let i = 0; i <= 60; i++) { const u = (i / 60) * TAU, s2 = 1 + Math.sin(u) ** 2; const x = cx + (Math.cos(u) / s2) * r.w * 0.28, y = cy + (Math.sin(u) * Math.cos(u) / s2) * r.w * 0.28; if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+      ctx.stroke(); ctx.strokeStyle = '#38f2ff'; ctx.lineWidth = 7; ctx.globalAlpha = 0.35 + 0.2 * Math.sin(t * 3); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    };
+    const rush = (r, t) => {
+      const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+      ctx.globalCompositeOperation = 'lighter';
+      const g = glow('#ff3f6e', 32); ctx.globalAlpha = 0.6; ctx.drawImage(g.c, cx - 70, cy - 60, 140, 120); ctx.globalAlpha = 1;
+      for (let i = 0; i < 5; i++) {
+        const a = -Math.PI / 2 + (i / 5) * TAU + t * 0.4, x = cx + Math.cos(a) * 34, y = cy + Math.sin(a) * 26;
+        const on = Math.floor(t * 2) % 5 === i;
+        ctx.fillStyle = on ? '#ffd23f' : '#ff3f6e'; ctx.globalAlpha = on ? 1 : 0.7;
+        ctx.beginPath(); ctx.arc(x, y, on ? 11 : 9, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#1a0006'; ctx.globalAlpha = 1; ctx.beginPath(); ctx.ellipse(x - 3, y - 1, 2, 3, 0, 0, TAU); ctx.ellipse(x + 3, y - 1, 2, 3, 0, 0, TAU); ctx.fill();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.font = '900 13px "Avenir Next Condensed",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ffffff'; ctx.fillText('×5', cx, cy);
+    };
+    const weekly = (r, t) => {
+      const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 12; i++) { const a = (i / 12) * TAU + t * 0.3; ctx.fillStyle = 'rgba(255,210,63,0.16)'; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r.w * 0.6, a - 0.09, a + 0.09); ctx.closePath(); ctx.fill(); }
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.font = '40px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(ev.icon, cx, cy + Math.sin(t * 2) * 3);
+    };
+    const weeklyDone = S.weekly && S.weekly.wk === wk;
+    return h('div', null, topbar('Modes de jeu'), h('div', { class: 'scroll' },
+      card('weekly', 'ÉVÉNEMENT : ' + ev.name.toUpperCase(), `Se termine dans ${daysLeft} j`, ev.desc, weeklyDone ? '✓ Récompense de la semaine obtenue' : 'Récompense : Coffre Astral + 10 gemmes', 4, weekly, '#ffd23f'),
+      card('endless', 'SURVIE INFINIE', 'Vagues sans fin', 'Les vagues ne s’arrêtent jamais et deviennent de plus en plus coriaces. Pas de seconde chance : tiens le plus longtemps possible !', B.endless ? `Record : vague ${B.endless.n} · ${String(B.endless.score).padStart(8, '0')}` : 'Aucun record', 6, warp, '#38f2ff'),
+      card('rush', 'RUÉE DES COLOSSES', '5 boss à la suite', 'Cinq colosses s’enchaînent, du plus faible au plus terrible. Bats-les tous pour un coffre astral.', B.rush ? `Record : ${B.rush.n} / 5 colosses` : 'Aucun record', 11, rush, '#ff3f6e')));
+  },
+  enter() { music.play('menu'); },
+});
+
 // ================= BRIEFING DES DÉFIS (le jeu attend que le joueur ait lu) =================
 export function briefingMenu(game) {
   const d = game.def;
@@ -360,8 +418,8 @@ register('results', {
       R.rank ? h('div', { class: 'rank rank-' + R.rank }, R.rank) : null);
     R.scoreEl = scoreB;
     el.append(...[
-      h('h1', { class: 'arc-title ' + (win ? 'win' : 'lose') }, win ? 'STAGE CLEAR' : 'GAME OVER'),
-      h('div', { class: 'center', style: 'font-weight:800;margin-top:-4px' }, win ? (R.def.kind === 'boss' ? 'Étoile rallumée !' : 'Secteur nettoyé !') : 'Coque détruite'),
+      h('h1', { class: 'arc-title ' + (win ? 'win' : 'lose') }, R.def.mode === 'endless' ? 'GAME OVER' : win ? 'STAGE CLEAR' : 'GAME OVER'),
+      h('div', { class: 'center', style: 'font-weight:800;margin-top:-4px' }, R.modeLine || (win ? (R.def.kind === 'boss' ? 'Étoile rallumée !' : 'Secteur nettoyé !') : 'Coque détruite')),
       h('div', { class: 'center muted' }, `Secteur ${R.def.code} · ${R.def.name} · ${DIFFS[R.def.diff].name}`),
       scoreBox,
       win ? stars : null,
@@ -371,10 +429,10 @@ register('results', {
       h('div', { class: 'panel', style: 'margin-top:8px' }, h('div', { class: 'row' }, h('b', null, `Pilote niv. ${R.lvlFrom}`), h('div', { class: 'spacer' }), h('span', { class: 'muted small' }, `+${R.xp} XP`)), xpb),
       statsLine,
       h('div', { class: 'row', style: 'margin-top:14px' },
-        btn('Carte', 'ghost', () => go('world', { w: R.def.w }, false)),
-        btn('Rejouer', '', () => app.startLevel(R.def.L, R.def.diff, {})),
+        R.def.mode ? btn('Modes', 'ghost', () => go('modes', {}, false)) : btn('Carte', 'ghost', () => go('world', { w: R.def.w }, false)),
+        btn('Rejouer', '', () => (R.def.mode ? app.startMode(R.def.mode) : app.startLevel(R.def.L, R.def.diff, {}))),
         h('div', { class: 'spacer' }),
-        win && R.def.L < 320 ? btn('Suivant ▸', 'primary', () => { go('hub', {}, false); levelSheet(next); }) : btn('Accueil', 'primary', () => go('hub', {}, false))),
+        win && !R.def.mode && R.def.L < 320 ? btn('Suivant ▸', 'primary', () => { go('hub', {}, false); levelSheet(next); }) : btn('Accueil', 'primary', () => go('hub', {}, false))),
     ].filter(Boolean));
     R.starsEl = stars; R.xpEl = xpb.querySelector('i');
     return el;

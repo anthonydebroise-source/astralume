@@ -76,7 +76,9 @@ export function planetCanvas(W, size, lit) {
 }
 
 // Coffre animé
+import { drawChestLux } from './treasure-art.js';
 export function drawChest(x, y, s, C, t, shake = 0, open = 0) {
+  if (C && C.id) { drawChestLux(x, y, s, C, t, shake, open); return; }
   const c = ctx;
   setT(x, y, s);
   const sh = shake ? Math.sin(t * 60) * 3 * shake : 0;
