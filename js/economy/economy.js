@@ -39,6 +39,7 @@ export function grant(b) {
   if (b.boost) for (const k in b.boost) S.boosts[k] = (S.boosts[k] || 0) + b.boost[k];
   if (b.ship && !ownsShip(b.ship)) unlockShip(b.ship, true);
   if (b.drone && !ownsDrone(b.drone)) unlockDrone(b.drone, true);
+  if (b.shards) for (const k in b.shards) giveShards(k, b.shards[k]);
   saveSoon();
 }
 
@@ -68,12 +69,50 @@ export function unlockShip(id, free = false) {
   saveSoon(); emit('unlock', { ship: id });
   return true;
 }
+// ---------- Éclats d'étoile : un cristal par vaisseau, pour le faire évoluer ----------
+export const EVO_MAX = 6;
+export const EVO_COST = [{ sh: 8, coins: 1500 }, { sh: 15, coins: 4000 }, { sh: 25, coins: 9000 }, { sh: 40, coins: 18000 }, { sh: 60, coins: 32000 }, { sh: 90, coins: 55000 }];
+export const EVO_PERKS = [
+  '+10 % de dégâts',
+  'Canons d’aile (nouvelle silhouette) · +10 % de dégâts',
+  'Nouvelle attaque : salve d’escorte à tête chercheuse',
+  'Ailes de combat (nouvelle silhouette) · +10 % de dégâts',
+  'Spéciale +30 %',
+  'Livrée dorée et cœur d’énergie double · +15 % de dégâts',
+];
+export const shards = (id) => (S.shards && S.shards[id]) || 0;
+export function giveShards(id, n) { if (!S.shards) S.shards = {}; S.shards[id] = (S.shards[id] || 0) + Math.round(n); emit('cur', {}); }
+export function evoLevel(id) { return (S.ships[id] && S.ships[id].ev) || 0; }
+export function evoCost(id) { const s = S.ships[id]; if (!s || (s.ev || 0) >= EVO_MAX) return null; return EVO_COST[s.ev || 0]; }
+export function canEvolve(id) { const c = evoCost(id); return !!c && shards(id) >= c.sh && canPay({ coins: c.coins }); }
+export function evolveShip(id) {
+  const c = evoCost(id);
+  if (!c || shards(id) < c.sh || !pay({ coins: c.coins })) return false;
+  S.shards[id] -= c.sh;
+  S.ships[id].ev = (S.ships[id].ev || 0) + 1;
+  saveSoon(); emit('ship', id);
+  return true;
+}
+function evoDmg(ev) { return 1 + [0, 0.1, 0.2, 0.2, 0.3, 0.3, 0.45][ev || 0]; }
+// ---------- Peintures ----------
+export const SKIN_COST = [null, { gems: 15 }, { gems: 30 }, { gems: 50 }];
+export function skinOwned(id, i) { const s = S.ships[id]; return i === 0 || !!(s && s.skins && s.skins.includes(i)); }
+export function buySkin(id, i) {
+  const s = S.ships[id];
+  if (!s || skinOwned(id, i) || !pay(SKIN_COST[i])) return false;
+  s.skins = (s.skins || []).concat(i); s.skin = i;
+  saveSoon(); emit('ship', id);
+  return true;
+}
+export function setSkin(id, i) { const s = S.ships[id]; if (s && skinOwned(id, i)) { s.skin = i; saveSoon(); emit('ship', id); } }
+
 export function shipStats(id) {
   const s = S.ships[id] || { pw: 0, rt: 0, sp: 0, m: { dmg: 0, rate: 0, spec: 0 }, aw: 0 };
   return {
-    dmg: (1 + 0.12 * s.pw) * (1 + s.m.dmg),
+    dmg: (1 + 0.12 * s.pw) * (1 + s.m.dmg) * evoDmg(s.ev),
     rate: (1 + 0.045 * s.rt) * (1 + s.m.rate),
-    spec: (1 + 0.1 * s.sp) * (1 + s.m.spec) * (1 + 0.25 * s.aw),
+    spec: (1 + 0.1 * s.sp) * (1 + s.m.spec) * (1 + 0.25 * s.aw) * ((s.ev || 0) >= 5 ? 1.3 : 1),
+    ev: s.ev || 0,
     charge: (1 + 0.03 * s.sp) * (1 + 0.08 * S.up.charge),
     aw: s.aw,
     lv: s,
@@ -216,6 +255,7 @@ export function bundleEntries(b) {
   if (b.boost) for (const k in b.boost) out.push({ type: 'boost', id: k, n: b.boost[k] });
   if (b.ship) out.push({ type: 'ship', id: b.ship, n: 1 });
   if (b.drone) out.push({ type: 'drone', id: b.drone, n: 1 });
+  if (b.shards) for (const k in b.shards) out.push({ type: 'shard', id: k, n: b.shards[k] });
   return out;
 }
 export { SHIPS, DRONES, UPGRADES };

@@ -9,7 +9,9 @@ import { load, S, save, saveSoon } from './economy/save.js';
 import { give, grant, addXP, recordLevel, xpNeeded } from './economy/economy.js';
 import { checkDaily, track } from './economy/daily.js';
 import { checkAchievements } from './economy/achievements.js';
-import { DIFFS } from './economy/data.js';
+import { DIFFS, SHIPS } from './economy/data.js';
+import { SHARD_COLORS } from './game/art.js';
+for (const sh of SHIPS) SHARD_COLORS[sh.id] = sh.color;
 import { buildLevel } from './levels/generator.js';
 import { Game } from './game/game.js';
 import { app } from './app.js';
@@ -72,8 +74,17 @@ function endLevel(res) {
     if (def.kind === 'boss' || def.kind === 'miniboss') chest = first ? 'boss' : Math.random() < 0.3 ? 'neon' : null;
     newStarCrystals = rec.newStars * 10;
   }
+  // éclats d'étoile du vaisseau utilisé (boss surtout)
+  let shardsN = 0;
+  if (victory) {
+    if (def.kind === 'boss') shardsN = [6, 10, 16][d] * (first ? 2 : 1);
+    else if (def.kind === 'miniboss') shardsN = [3, 5, 8][d] * (first ? 2 : 1);
+    else if (first) shardsN = 2 + d;
+    else if (Math.random() < 0.25 + 0.15 * d) shardsN = 1 + d;
+  }
   const total = {};
   for (const k of ['coins', 'crystals', 'gems', 'parts']) total[k] = got[k] + bonus[k];
+  if (shardsN) total.shards = { [S.ship]: shardsN };
   total.crystals += newStarCrystals;
   if (chest) total.chest = chest;
   grant(total);
@@ -99,7 +110,7 @@ function endLevel(res) {
   save();
   app.game = null;
   clearParticles();
-  show('results', { victory, stars: res.stars, def, stats: st, got, bonus, first, chest, newStarCrystals, xp, lvlFrom, xpFrom, xpTo, levelUps });
+  show('results', { victory, stars: res.stars, def, stats: st, got, bonus, first, chest, newStarCrystals, shardsN, shardShip: S.ship, xp, lvlFrom, xpFrom, xpTo, levelUps });
 }
 
 // ---------- Boucle ----------

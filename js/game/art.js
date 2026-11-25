@@ -121,6 +121,25 @@ export function drawCrystal(g, r, color = '#38f2ff') {
   g.strokeStyle = lighten(c, 0.7); g.lineWidth = r * 0.08;
   g.beginPath(); g.moveTo(0, -r); g.lineTo(r * 0.55, -r * 0.35); g.lineTo(r * 0.55, r * 0.4); g.lineTo(0, r); g.lineTo(-r * 0.55, r * 0.4); g.lineTo(-r * 0.55, -r * 0.35); g.closePath(); g.stroke();
 }
+// Éclat d'étoile : grappe de cristaux à la couleur du vaisseau
+export function drawShard(g, r, color = '#38f2ff') {
+  const cr = (x, y, w, hh, a, c) => {
+    g.save(); g.translate(x, y); g.rotate(a);
+    g.beginPath(); g.moveTo(0, -hh); g.lineTo(w, -hh * 0.45); g.lineTo(w * 0.8, hh * 0.7); g.lineTo(0, hh); g.lineTo(-w * 0.8, hh * 0.7); g.lineTo(-w, -hh * 0.45); g.closePath();
+    g.fillStyle = darken(c, 0.35); g.fill();
+    g.fillStyle = lighten(c, 0.15); g.beginPath(); g.moveTo(0, -hh); g.lineTo(w, -hh * 0.45); g.lineTo(w * 0.8, hh * 0.7); g.lineTo(0, hh); g.closePath(); g.fill();
+    g.fillStyle = lighten(c, 0.55); g.beginPath(); g.moveTo(0, -hh); g.lineTo(-w, -hh * 0.45); g.lineTo(-w * 0.2, -hh * 0.1); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.85)'; g.beginPath(); g.moveTo(-w * 0.15, -hh * 0.8); g.lineTo(w * 0.3, -hh * 0.4); g.lineTo(0, -hh * 0.25); g.closePath(); g.fill();
+    g.strokeStyle = lighten(c, 0.75); g.lineWidth = r * 0.06; g.beginPath(); g.moveTo(0, -hh); g.lineTo(w, -hh * 0.45); g.lineTo(w * 0.8, hh * 0.7); g.lineTo(0, hh); g.lineTo(-w * 0.8, hh * 0.7); g.lineTo(-w, -hh * 0.45); g.closePath(); g.stroke();
+    g.restore();
+  };
+  const gr = g.createRadialGradient(0, 0, 0, 0, 0, r * 1.2); gr.addColorStop(0, rgba(color, 0.55)); gr.addColorStop(1, rgba(color, 0));
+  g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r * 1.2, 0, TAU); g.fill();
+  cr(-r * 0.48, r * 0.25, r * 0.26, r * 0.55, -0.45, darken(color, 0.1));
+  cr(r * 0.5, r * 0.28, r * 0.24, r * 0.5, 0.5, darken(color, 0.1));
+  cr(0, -r * 0.05, r * 0.36, r * 0.92, 0, color);
+  g.fillStyle = '#fff'; starPath(g, 4, r * 0.28, r * 0.06, 0, false); g.save(); g.translate(r * 0.3, -r * 0.62); g.fill(); g.restore();
+}
 export function drawGem(g, r, color = '#ff4fd8') {
   const c = color;
   g.beginPath(); g.moveTo(-r, -r * 0.25); g.lineTo(-r * 0.55, -r * 0.75); g.lineTo(r * 0.55, -r * 0.75); g.lineTo(r, -r * 0.25); g.lineTo(0, r); g.closePath();
@@ -229,6 +248,7 @@ export const ICONS = {
   boost_power: (g, r) => drawPowerIco(g, r),
 };
 
+export const SHARD_COLORS = {};
 // Image (data URL) d'une icône pour le DOM
 const urlCache = new Map();
 export function iconURL(name, size = 64, glowColor = null) {
@@ -243,7 +263,7 @@ export function iconURL(name, size = 64, glowColor = null) {
     gr.addColorStop(0, rgba(glowColor, 0.55)); gr.addColorStop(1, rgba(glowColor, 0));
     g.fillStyle = gr; g.fillRect(-size / 2, -size / 2, size, size);
   }
-  const f = ICONS[name];
+  const f = ICONS[name] || (name.startsWith('shard_') ? (gg, rr) => drawShard(gg, rr, SHARD_COLORS[name.slice(6)] || '#38f2ff') : null);
   if (f) f(g, size * 0.38);
   u = c.toDataURL();
   urlCache.set(k, u);

@@ -13,7 +13,9 @@ import { drawDroneIcon } from '../game/drones.js';
 import { ctx, setT, baseT, view, setQuality, cam } from '../engine/renderer.js';
 import { glow } from '../engine/sprites.js';
 import { fx } from '../engine/particles.js';
-import { iconURL, ICONS } from '../game/art.js';
+import { iconURL, ICONS, drawShard } from '../game/art.js';
+import { drawHypercar } from '../game/hypercar.js';
+import { shipSkins } from '../game/skins.js';
 import { fmt, TAU, rand, ease, hslHex } from '../engine/math.js';
 import { sfx } from '../audio/sfx.js';
 import { applyVolumes } from '../audio/audio.js';
@@ -43,8 +45,52 @@ register('hangar', {
     return h('div', null, topbar('', curBar(['coins', 'crystals', 'gems', 'parts'])), tabs, h('div', { class: 'scroll' }, body));
   },
 });
+let previewSkin = null, previewShip = null;
+function evoPanel(sh) {
+  const ev = E.evoLevel(sh.id), ec = E.evoCost(sh.id), have = E.shards(sh.id);
+  const stars = h('div', { class: 'evo-stars' });
+  for (let i = 0; i < E.EVO_MAX; i++) stars.append(h('i', { class: i < ev ? 'on' : '' }, '★'));
+  const p = h('div', { class: 'panel evo', style: `--c:${sh.color}` },
+    h('div', { class: 'evo-head' }, h('img', { src: iconURL('shard_' + sh.id, 96), alt: '' }),
+      h('div', { class: 'evo-t' }, h('b', null, 'Évolution'), stars),
+      h('div', { class: 'evo-have' }, h('b', null, fmt(have)), h('small', null, 'Éclats ' + sh.name))));
+  if (ec) {
+    const k = Math.min(1, have / ec.sh);
+    p.append(h('div', { class: 'evo-next' }, h('span', null, `★${ev + 1} : `), E.EVO_PERKS[ev]),
+      h('div', { class: 'evo-bar' }, h('i', { style: `width:${Math.round(k * 100)}%` }), h('span', null, `${fmt(have)} / ${ec.sh} éclats`)));
+    const b = btn(h('span', { class: 'cont-btn' }, 'Évoluer ', h('img', { src: iconURL('shard_' + sh.id, 48), alt: '' }), h('b', null, String(ec.sh)), ' + ', costEl({ coins: ec.coins })), 'gold wide' + (E.canEvolve(sh.id) ? '' : ' cant'),
+      () => { if (E.evolveShip(sh.id)) { flash(sh.color, 0.5); addShake(0.3); sfx.chestOpen(3); toast('Évolution ★' + E.evoLevel(sh.id) + ' !', E.EVO_PERKS[E.evoLevel(sh.id) - 1], SVG.star || SVG.ship, sh.color); refresh(); } },
+      { onDeny: () => toast(have < ec.sh ? 'Pas assez d’éclats' : 'Pas assez de pièces', 'Les éclats tombent des boss, des coffres et de la roue.', SVG.lock, '#ff4f6e') });
+    p.append(b);
+  } else p.append(h('div', { class: 'evo-next center' }, 'Évolution maximale atteinte !'));
+  const list = h('div', { class: 'evo-list' });
+  E.EVO_PERKS.forEach((txt, i) => list.append(h('div', { class: i < ev ? 'ok' : '' }, h('b', null, '★' + (i + 1)), txt)));
+  p.append(list, h('div', { class: 'muted small', style: 'margin-top:6px' }, 'Chaque vaisseau a ses propres éclats. On les gagne en battant les boss (surtout avec ce vaisseau), dans les coffres et à la roue.'));
+  return p;
+}
+function skinPanel(sh) {
+  const list = shipSkins(sh.id), st = S.ships[sh.id];
+  const row = h('div', { class: 'skins' });
+  list.forEach((sk, i) => {
+    const owned = E.skinOwned(sh.id, i), cur = (st.skin || 0) === i, prev = previewSkin === i;
+    const col = sk.paint || sh.color, col2 = sk.accent || sh.color2;
+    const b = h('button', { class: 'skin' + (cur ? ' cur' : '') + (prev ? ' prev' : '') + (owned ? '' : ' locked'), style: `--a:${col};--b:${col2}`, onclick: () => {
+      sfx.ui();
+      if (owned) { E.setSkin(sh.id, i); previewSkin = null; refresh(); }
+      else { previewSkin = i; previewShip = sh.id; refresh(); }
+    } }, h('span', { class: 'sw' }), h('small', null, sk.name), owned ? null : h('em', null, h('img', { src: iconURL('gems', 32), alt: '' }), String(E.SKIN_COST[i].gems)));
+    row.append(b);
+  });
+  const p = h('div', { class: 'panel', style: 'margin-top:10px' }, h('div', { class: 'subtitle', style: 'margin-top:0' }, 'Peintures'), row);
+  if (previewSkin !== null && previewShip === sh.id && !E.skinOwned(sh.id, previewSkin)) {
+    const c = E.SKIN_COST[previewSkin];
+    p.append(buyBtn(c, 'Acheter « ' + list[previewSkin].name + ' »', () => { if (E.buySkin(sh.id, previewSkin)) { previewSkin = null; flash(sh.color, 0.4); sfx.upgrade(); refresh(); } }, 'gold wide'));
+  }
+  return p;
+}
 function shipsTab() {
   const sh = SHIPS[hangarIdx];
+  if (previewShip !== sh.id) previewSkin = null;
   const own = E.ownsShip(sh.id);
   const rar = RARITY[sh.rarity];
   const stage = h('div', { class: 'ship-stage' },
@@ -59,7 +105,7 @@ function shipsTab() {
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     setT(cx, cy + Math.sin(t * 2) * 5, 3);
     if (!own) ctx.globalAlpha = 0.45;
-    SHIP_FX[sh.id].draw(ctx, t, sh.color, sh.color2);
+    drawHypercar(ctx, sh.id, t, Math.sin(t * 0.9) * 0.25, previewSkin !== null ? { skin: previewSkin } : undefined);
     ctx.globalAlpha = 1; baseT();
     if (Math.random() < 0.5) fx.dot(cx + rand(-6, 6), cy + 48, rand(-10, 10), rand(80, 140), 0.4, 8, sh.color);
   });
@@ -75,6 +121,7 @@ function shipsTab() {
       h('div', { class: 'muted small', style: 'margin-top:4px' }, sh.sdesc)),
   ];
   if (own) {
+    out.push(evoPanel(sh), skinPanel(sh));
     const up = h('div', { class: 'panel', style: 'margin-top:10px' });
     const rows = [['pw', 'Puissance', `Dégâts ×${st.dmg.toFixed(2)}`], ['rt', 'Cadence', `Cadence ×${st.rate.toFixed(2)}`], ['sp', 'Spéciale', `Spéciale ×${st.spec.toFixed(2)}`]];
     for (const [k, name, sub] of rows) {
@@ -251,6 +298,7 @@ function itemIcon(item, t) {
   else if (item.kind === 'ship') { c.scale(0.8, 0.8); SHIP_FX[item.ship].draw(c, t, SHIP_BY_ID[item.ship].color, SHIP_BY_ID[item.ship].color2); }
   else if (item.kind === 'drone' || item.kind === 'dmodule') { c.scale(1.4, 1.4); drawDroneIcon(c, item.drone, t); }
   else if (item.kind === 'awaken') ICONS.nova(c, 15);
+  else if (item.kind === 'shard') drawShard(c, 15, SHIP_BY_ID[item.ship].color);
   else { c.rotate(t); c.fillStyle = '#ffffff'; c.strokeStyle = item.stat === 'dmg' ? '#ff4f6e' : item.stat === 'rate' ? '#38f2ff' : '#ffd23f'; c.lineWidth = 2.5; c.beginPath(); for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU; c.lineTo(Math.cos(a) * 13, Math.sin(a) * 13); } c.closePath(); c.fill(); c.stroke(); c.fillStyle = c.strokeStyle; c.beginPath(); c.arc(0, 0, 5, 0, TAU); c.fill(); }
 }
 

@@ -160,6 +160,7 @@ export function rewardRow(bundle, big = false) {
     else if (e.type === 'boost') { icon = iconURL('boost_' + e.id, 64); label = BOOSTS[e.id].name + (e.n > 1 ? ' ×' + e.n : ''); }
     else if (e.type === 'ship') { icon = iconURL('nova', 64); label = 'Vaisseau : ' + SHIP_BY_ID[e.id].name; }
     else if (e.type === 'drone') { icon = iconURL('energy', 64); label = 'Drone : ' + DRONE_BY_ID[e.id].name; }
+    else if (e.type === 'shard') { icon = iconURL('shard_' + e.id, 64); label = '+' + fmt(e.n) + ' Éclats ' + (SHIP_BY_ID[e.id] ? SHIP_BY_ID[e.id].name : ''); }
     row.append(h('div', { class: 'rw' + (big ? ' big' : '') }, h('img', { src: icon, alt: '' }), label));
   }
   return row;

@@ -13,6 +13,7 @@ export function defaults() {
     ships: { etincelle: { own: 1, pw: 0, rt: 0, sp: 0, m: { dmg: 0, rate: 0, spec: 0 }, aw: 0 } },
     drones: { sentinelle: { own: 1, lvl: 1, m: 0 } }, // id -> { own:1, lvl:1, m:0 }
     slots: ['sentinelle', null],
+    shards: {},             // éclats d'étoile par vaisseau
     up: { hull: 0, shield: 0, magnet: 0, fortune: 0, nova: 0, arsenal: 0, luck: 0, crit: 0, charge: 0, slot2: 0 },
     gacha: { r: 0, e: 0, l: 0 },
     wheel: { day: -1, free: 1, paid: 0 },

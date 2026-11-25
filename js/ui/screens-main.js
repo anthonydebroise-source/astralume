@@ -317,6 +317,11 @@ register('results', {
     add('Gemmes', 'gems', R.got.gems + (R.bonus.gems || 0));
     add('Composants', 'parts', R.got.parts + (R.bonus.parts || 0));
     if (R.newStarCrystals) add('Nouvelles étoiles', 'crystals', R.newStarCrystals);
+    if (R.shardsN) {
+      const v = h('span', { class: 'v' }, h('img', { src: iconURL('shard_' + R.shardShip, 48), class: 'ic', style: 'width:20px;height:20px;vertical-align:-5px' }), h('b', null, '0'));
+      lines.append(h('div', { class: 'rline' }, h('span', null, 'Éclats ' + SHIP_BY_ID[R.shardShip].name), v));
+      R.anims.push({ el: v.querySelector('b'), n: R.shardsN });
+    }
     const xpb = h('div', { class: 'bar' }, h('i', { style: `width:${Math.round(R.xpFrom * 100)}%` }));
     const statsLine = h('div', { class: 'muted small center', style: 'margin-top:8px' }, `${R.stats.kills} aliens · chaîne max ${R.stats.maxChain} · ${R.stats.constellations} constellation(s)` + (R.stats.perfects ? ` · ${R.stats.perfects} PARFAIT` : ''));
     const next = Math.min(320, R.def.L + 1);

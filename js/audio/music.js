@@ -37,7 +37,7 @@ const SONGS = {
   boss: { bpm: 148, root: 40, drums: 'boss', bass: 'drive', arp: 'gate16', lead: 'saw', hard: true, bassOct: 0,
     chords: [[0, 7, 12], [1, 8, 13], [0, 7, 12], [-2, 5, 10], [0, 7, 12], [1, 8, 13], [3, 10, 15], [1, 8, 13]],
     melody: mel(['0.1:12 2.1:12 3.1:13 4.2:12 6.1:10 7.1:12 8.4:15 12.2:13 14.2:12', '0.4:13 4.2:17 6.2:13 8.8:12', '0.1:12 2.1:12 3.1:13 4.2:15 6.1:13 7.1:12 8.4:19 12.4:17', '0.4:15 4.4:14 8.8:10',
-      '0.1:24 2.1:24 3.1:25 4.2:24 6.1:22 7.1:24 8.4:27 12.2:25 14.2:24', '0.4:25 4.2:29 6.2:25 8.8:24', '0.2:27 2.2:25 4.2:24 6.2:22 8.4:20 12.4:19', '0.8:17 8.8:13']) },
+      '0.1:12 2.1:12 3.1:13 4.2:12 6.1:10 7.1:12 8.4:15 12.2:13 14.2:12', '0.4:13 4.2:17 6.2:13 8.8:12', '0.2:15 2.2:13 4.2:12 6.2:10 8.4:8 12.4:7', '0.8:5 8.8:1']) },
   anthem: { bpm: 104, root: 50, drums: 'half', bass: 'long', arp: 'updown8', lead: 'saw',
     chords: [[0, 3, 7], [-4, 0, 3], [3, 7, 10], [-2, 2, 5], [0, 3, 7], [-4, 0, 3], [-2, 2, 5], [-5, -1, 2]],
     melody: mel(['0.6:7 6.2:5 8.8:12', '0.6:10 6.2:8 8.8:3', '0.6:5 6.2:7 8.4:10 12.4:12', '0.12:14 12.4:12',
@@ -64,19 +64,21 @@ function makeBus() {
   const comp = c.createDynamicsCompressor();
   comp.threshold.value = -18; comp.knee.value = 10; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.25;
   const master = c.createGain(); master.gain.value = 0.9;
-  const tone = c.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = 18000; tone.Q.value = 0.5;
-  master.connect(tone); tone.connect(comp); comp.connect(A.music);
+  const tone = c.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = 8500; tone.Q.value = 0.4;
+  const shelf = c.createBiquadFilter(); shelf.type = 'highshelf'; shelf.frequency.value = 3800; shelf.gain.value = -5;
+  const warm = c.createBiquadFilter(); warm.type = 'lowshelf'; warm.frequency.value = 160; warm.gain.value = 2.5;
+  master.connect(tone); tone.connect(shelf); shelf.connect(warm); warm.connect(comp); comp.connect(A.music);
   // Réverbération (réponse impulsionnelle générée)
   const len = Math.floor(c.sampleRate * 1.8);
   const ir = c.createBuffer(2, len, c.sampleRate);
   for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
   const verb = c.createConvolver(); verb.buffer = ir;
-  const verbIn = c.createGain(); verbIn.gain.value = 0.32;
+  const verbIn = c.createGain(); verbIn.gain.value = 0.38;
   verbIn.connect(verb); verb.connect(master);
   // Écho stéréo (ping-pong)
-  const dIn = c.createGain(); dIn.gain.value = 0.28;
-  const dl = c.createDelay(1.5), dr = c.createDelay(1.5), fb = c.createGain(); fb.gain.value = 0.38;
-  const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200;
+  const dIn = c.createGain(); dIn.gain.value = 0.2;
+  const dl = c.createDelay(1.5), dr = c.createDelay(1.5), fb = c.createGain(); fb.gain.value = 0.3;
+  const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2200;
   const merger = c.createChannelMerger(2);
   dIn.connect(dl); dl.connect(lp); lp.connect(dr); dr.connect(fb); fb.connect(dl);
   lp.connect(merger, 0, 0); dr.connect(merger, 0, 1); merger.connect(master);
@@ -121,7 +123,7 @@ export const music = {
     const t = c.currentTime;
     bus.tone.frequency.cancelScheduledValues(t);
     bus.tone.frequency.setValueAtTime(500, t);
-    bus.tone.frequency.exponentialRampToValueAtTime(18000, t + this.sd * 16 * 2);
+    bus.tone.frequency.exponentialRampToValueAtTime(8500, t + this.sd * 16 * 2);
     bus.dl.delayTime.setValueAtTime(this.sd * 3, t);
     bus.dr.delayTime.setValueAtTime(this.sd * 3, t);
     this.applyIntensity(true);
@@ -174,7 +176,7 @@ export const music = {
     const root = S.root + tr;
     const chord = S.chords[b8].map((x) => root + x);
     // Nappe : un accord par mesure
-    if (st === 0) { pad(t, chord.map((m) => m + 12), sd * 16, L.pad, S.lead === 'bell' ? 0.05 : 0.04); if (b8 === 0 && sec > 0) crash(t, L.drums); }
+    if (st === 0) { pad(t, chord.map((m) => m + 12), sd * 16, L.pad, S.lead === 'bell' ? 0.05 : 0.04); if (b8 === 0 && sec > 0 && sec % 2 === 0) crash(t, L.drums); }
     // Pont : toutes les 4 sections, 4 mesures sans grosse caisse ni basse, avec montée
     const brk = sec % 4 === 2 && b8 < 4 && !S.hard;
     if (brk && b8 === 3 && st === 0) riser(t, sd * 16, L.drums);
@@ -183,16 +185,20 @@ export const music = {
     // Batterie (+ pompe sur la grosse caisse)
     if (brk) { if (st % 2 === 0) hat(t, L.drums, 0.03); if (b8 === 3 && st >= 8) snare(t, L.drums, 0.05 + (st - 8) * 0.025); }
     else if (!intro || S.drums === 'half') drums(S.drums, st, t, L, b8, this.intensity, sd);
-    // Arpège
-    arp(S.arp, st, t, chord, sd, L.arp, step);
-    // Mélodie : sections alternées (B = refrain avec le thème), A = thème une octave plus bas, plus doux
+    // Forme en 4 sections (32 mesures) : 0 = groove sans thème, 1 = thème doux,
+    // 2 = pont (écho du thème, notes longues seulement), 3 = refrain. Le thème ne tourne donc pas en boucle.
+    const phase = sec % 4;
+    // Arpège : présent surtout quand le thème se tait, motif qui change d'une section à l'autre
+    const arpStyle = phase === 2 ? (S.arp === 'gate16' ? 'gate16' : 'chill8') : S.arp;
+    if (phase === 0 || phase === 2 || st % 2 === 0) arp(arpStyle, st, t, chord, sd, L.arp, step, phase === 1 || phase === 3 ? 0.55 : 1);
+    // Mélodie (une octave plus bas qu'avant : plus chaude, moins perçante)
     if (bar >= 2) {
-      const ms = b8 * 16 + st;
-      const chorus = sec % 2 === 1 || this.intensity > 0.9;
+      const ms = b8 * 16 + st, lo = S.hard ? 12 : 0;
       for (const [s0, len, semi] of S.melody) {
         if (s0 !== ms) continue;
-        if (chorus) lead(S.lead, t, root + 12 + semi, len * sd * 0.95, L.lead, 1);
-        else if (sec % 2 === 0 && b8 >= 4) lead(S.lead === 'saw' ? 'pluck' : S.lead, t, root + semi, len * sd * 0.9, L.lead, 0.6);
+        if (phase === 3) lead(S.lead, t, root + lo + semi, len * sd * 0.95, L.lead, 1);
+        else if (phase === 1) lead(S.lead === 'bell' ? 'bell' : 'pluck', t, root + lo + semi, len * sd * 0.9, L.lead, 0.75);
+        else if (phase === 2 && len >= 4 && !S.hard) lead('bell', t, root + semi, len * sd, L.lead, 0.55);
       }
     }
   },
@@ -231,18 +237,18 @@ function bassLine(style, st, t, r, chord, sd, dest, b8) {
   else if (style === 'drive') { bassNote(t, r + (st === 14 && b8 % 2 ? 12 : 0), sd * 0.9, dest); }
   else if (style === 'long') { if (st === 0) bassNote(t, r, sd * 12, dest, true); if (st === 12) bassNote(t, r + 7, sd * 4, dest, true); }
 }
-function arp(style, st, t, chord, sd, dest, step) {
+function arp(style, st, t, chord, sd, dest, step, vel = 1) {
   const tones = [chord[0], chord[1], chord[2], chord[0] + 12, chord[1] + 12, chord[2] + 12, chord[0] + 24];
   let m = null;
-  if (style === 'up16') m = tones[step % 6] + 12;
-  else if (style === 'updown8') { if (st % 2 === 0) m = tones[[0, 1, 2, 3, 4, 3, 2, 1][(st / 2) % 8]] + 12; }
-  else if (style === 'gate16') m = (st % 4 === 3 ? chord[1] : chord[0]) + 24 + (st % 8 === 6 ? 7 : 0);
+  if (style === 'up16') m = tones[step % 6];
+  else if (style === 'updown8') { if (st % 2 === 0) m = tones[[0, 1, 2, 3, 4, 3, 2, 1][(st / 2) % 8]]; }
+  else if (style === 'gate16') m = (st % 4 === 3 ? chord[1] : chord[0]) + 12 + (st % 8 === 6 ? 7 : 0);
   else if (style === 'chill8') { if (st % 2 === 0) m = tones[[0, 2, 4, 1, 3, 5, 2, 4][(st / 2) % 8]] + 12; }
   if (m === null) return;
   const c = A.ctx;
-  const f = c.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 3;
-  f.frequency.setValueAtTime(style === 'chill8' ? 2200 : 3600, t); f.frequency.exponentialRampToValueAtTime(500, t + sd * 1.4);
-  const g = c.createGain(); env(g, t, 0.004, style === 'gate16' ? 0.045 : 0.055, 0.01, sd * 1.3);
+  const f = c.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 2;
+  f.frequency.setValueAtTime(style === 'chill8' ? 1800 : 2000, t); f.frequency.exponentialRampToValueAtTime(380, t + sd * 1.4);
+  const g = c.createGain(); env(g, t, 0.005, (style === 'gate16' ? 0.042 : 0.05) * vel * (0.85 + Math.random() * 0.25), 0.01, sd * 1.3);
   osc(style === 'chill8' ? 'triangle' : 'sawtooth', N(m), t, sd * 1.5, f);
   f.connect(g); g.connect(dest);
 }
@@ -258,21 +264,21 @@ function lead(kind, t, m, dur, dest, vel) {
     return;
   }
   if (kind === 'pluck') {
-    env(g, t, 0.004, 0.07 * vel, 0.02, Math.min(0.5, dur));
-    f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(600, t + 0.3);
+    env(g, t, 0.004, 0.075 * vel, 0.02, Math.min(0.5, dur));
+    f.frequency.setValueAtTime(2200, t); f.frequency.exponentialRampToValueAtTime(450, t + 0.3);
     osc('sawtooth', N(m), t, dur + 0.5, f); osc('sawtooth', N(m), t, dur + 0.5, f, 9);
     return;
   }
-  const v = (kind === 'square' ? 0.055 : 0.05) * vel;
-  env(g, t, 0.012, v, Math.max(0.04, dur - 0.05), 0.16);
-  f.frequency.setValueAtTime(kind === 'square' ? 3800 : 4800, t);
+  const v = (kind === 'square' ? 0.06 : 0.058) * vel;
+  env(g, t, 0.018, v, Math.max(0.04, dur - 0.05), 0.2);
+  f.frequency.setValueAtTime(kind === 'square' ? 2000 : 2600, t); f.frequency.linearRampToValueAtTime(kind === 'square' ? 1500 : 1900, t + Math.max(0.05, dur));
   // vibrato qui arrive après l'attaque
   const lfo = c.createOscillator(), lg = c.createGain();
-  lfo.frequency.value = 5.6; lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(dur > 0.3 ? 14 : 0, t + Math.min(0.35, dur));
+  lfo.frequency.value = 5.2; lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(dur > 0.3 ? 9 : 0, t + Math.min(0.4, dur));
   lfo.connect(lg); lfo.start(t); lfo.stop(t + dur + 0.3);
-  const dets = kind === 'square' ? [-6, 6] : [-13, 13];
+  const dets = kind === 'square' ? [-6, 6] : [-9, 9];
   for (const d of dets) { const o = osc(kind === 'square' ? 'square' : 'sawtooth', N(m), t, dur + 0.25, f, d); lg.connect(o.detune); }
-  if (kind === 'saw') { const s2 = c.createGain(); s2.gain.value = 0.35; s2.connect(f); osc('square', N(m - 12), t, dur + 0.2, s2); }
+  if (kind === 'saw') { const s2 = c.createGain(); s2.gain.value = 0.45; s2.connect(f); osc('triangle', N(m - 12), t, dur + 0.2, s2); }
 }
 function kick(t, L) {
   const c = A.ctx;
@@ -302,13 +308,13 @@ function clap(t, dest) {
 }
 function hat(t, dest, v, open) {
   const c = A.ctx;
-  const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 8200;
-  const g = c.createGain(); env(g, t, 0.001, v, 0.002, open ? 0.22 : 0.035); f.connect(g); g.connect(dest); noiseSrc(t, open ? 0.3 : 0.06, f);
+  const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 7200; f.Q.value = 0.9;
+  const g = c.createGain(); env(g, t, 0.001, v * 0.75 * (0.8 + Math.random() * 0.3), 0.002, open ? 0.2 : 0.03); f.connect(g); g.connect(dest); noiseSrc(t, open ? 0.3 : 0.06, f);
 }
 function crash(t, dest) {
   const c = A.ctx;
   const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 4500;
-  const g = c.createGain(); env(g, t, 0.003, 0.08, 0.01, 1.6); f.connect(g); g.connect(dest); noiseSrc(t, 1.7, f);
+  const g = c.createGain(); env(g, t, 0.003, 0.045, 0.01, 1.4); f.connect(g); g.connect(dest); noiseSrc(t, 1.5, f);
 }
 function riser(t, dur, dest) {
   const c = A.ctx;
@@ -324,12 +330,12 @@ function drums(style, st, t, L, b8, inten, sd) {
     if (st % 4 === 0) kick(t, L);
     if (st === 4 || st === 12) { snare(t, D, 0.24); clap(t, D); }
     if (st % 4 === 2) hat(t, D, 0.07, st === 14 && b8 % 2 === 1);
-    else if (inten > 0.6 && st % 2 === 1) hat(t, D, 0.03);
+    else if (inten > 0.75 && st % 2 === 1) hat(t, D, 0.018);
     if (fill && st % 1 === 0 && st !== 12) snare(t, D, 0.1 + (st - 12) * 0.04);
   } else if (style === 'break') {
     if (st === 0 || st === 7 || st === 10) kick(t, L);
     if (st === 4 || st === 12) snare(t, D, 0.26);
-    hat(t, D, st % 2 ? 0.03 : 0.06, st === 6);
+    hat(t, D, st % 2 ? 0.022 : 0.05, st === 6);
     if (fill && st > 12) snare(t, D, 0.12);
   } else if (style === 'half') {
     if (st === 0 || st === 10) kick(t, L);
@@ -338,7 +344,7 @@ function drums(style, st, t, L, b8, inten, sd) {
   } else if (style === 'boss') {
     if ([0, 3, 6, 8, 11, 14].includes(st)) kick(t, L);
     if (st === 4 || st === 12) { snare(t, D, 0.28); clap(t, D); }
-    hat(t, D, st % 2 ? 0.035 : 0.065);
+    hat(t, D, st % 2 ? 0.024 : 0.055);
     if (fill) snare(t, D, 0.14);
   }
 }

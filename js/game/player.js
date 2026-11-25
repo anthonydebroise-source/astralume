@@ -23,7 +23,7 @@ export class Player {
     this.F = SHIP_FX[this.id];
     this.col = this.meta.color; this.col2 = this.meta.color2;
     const st = shipStats(this.id);
-    this.dmgMul0 = st.dmg; this.rateMul0 = st.rate; this.specMul = st.spec; this.chargeMul = st.charge; this.aw = st.aw;
+    this.dmgMul0 = st.dmg; this.rateMul0 = st.rate; this.specMul = st.spec; this.chargeMul = st.charge; this.aw = st.aw; this.ev = st.ev || 0; this.escT = 0;
     this.crit = S.up.crit * 0.03;
     this.maxHp = g.def.glass ? 1 : 3 + S.up.hull;
     this.hp = this.maxHp;
@@ -116,6 +116,14 @@ export class Player {
   fire(dt) {
     const g = this.g, W = this.F.weapon;
     const lvl = this.effLvl();
+    // Évolution ★3 : salve d'escorte (deux traits à tête chercheuse depuis les canons d'aile)
+    if (this.ev >= 3 && !g.def.noWeapons) {
+      this.escT -= dt * this.rateMul;
+      if (this.escT <= 0) {
+        this.escT = this.ev >= 6 ? 0.55 : 0.8;
+        for (const k of [-1, 1]) g.addPB(this.x + k * 22, this.y - 6, k * 90, -520, 2.4 * this.dmgMul, 'spark', { homing: 6, color: this.col, life: 1.6 });
+      }
+    }
     if (W.update) W.update(g, this, dt);
     this.wlvlEff = lvl;
     this.wcd -= dt * this.rateMul;

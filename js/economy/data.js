@@ -57,6 +57,7 @@ export const SHIPS = [
     cost: { gems: 160, parts: 140 }, req: 151 },
 ];
 export const SHIP_BY_ID = Object.fromEntries(SHIPS.map((s) => [s.id, s]));
+export const shardName = (id) => 'Éclat ' + (SHIP_BY_ID[id] ? SHIP_BY_ID[id].name : '');
 
 export const DRONES = [
   { id: 'sentinelle', name: 'Sentinelle', color: '#38f2ff', desc: 'Tire automatiquement sur l’ennemi le plus proche.', cost: { crystals: 60 }, req: 1 },
