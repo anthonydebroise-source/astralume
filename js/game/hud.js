@@ -33,7 +33,8 @@ export class Hud {
     this.msgs.push({ text, color, size, dur, t: 0, big });
   }
   setRadio(text) { if (text) this.radio = { text, t: 0, dur: 4.8 }; }
-  showBanner() { this.banner = { t: 0, dur: 3.2 }; }
+  showBanner() { this.banner = { t: 0, dur: 3.2 }; this.ready = { t: 0 }; }
+  stageClear(title, bon) { this.clear = { t: 0, title, bon }; }
   update(dt) {
     this.t += dt;
     const target = this.g.stats.coins;
@@ -43,6 +44,15 @@ export class Hud {
     if (this.radio) { this.radio.t += dt; if (this.radio.t > this.radio.dur) this.radio = null; }
     if (this.banner) { this.banner.t += dt; if (this.banner.t > this.banner.dur) this.banner = null; }
     this.warn = Math.max(0, this.warn - dt);
+    if (this.ready) { this.ready.t += dt; if (this.ready.t > 3.2) this.ready = null; }
+    if (this.clear) this.clear.t += dt;
+    // score affiché qui « roule » vers le vrai score
+    const sc = this.g.stats.score;
+    this.scoreShown = this.scoreShown === undefined ? sc : this.scoreShown + Math.max(sc > this.scoreShown ? 1 : 0, (sc - this.scoreShown) * Math.min(1, dt * 10));
+    if (this.scoreShown > sc) this.scoreShown = sc;
+    const ch = this.g.combo.chain;
+    if (ch >= 5) { this.chainShow = ch; this.chainA = 1; if (ch > (this.lastChain || 0)) this.chainPop = 1; } else this.chainA = Math.max(0, (this.chainA || 0) - dt * 2);
+    this.lastChain = ch; this.chainPop = Math.max(0, (this.chainPop || 0) - dt * 5);
   }
   // Jauge de puissance (niveau d'arme) : 6 chevrons lumineux, éclat à chaque gain
   drawPower(p, top) {
@@ -105,14 +115,15 @@ export class Hud {
     for (let i = 0; i < p.shield; i++) { ctx.drawImage(ss.c, x - ss.hw, top + 10 - ss.hh, ss.w, ss.h); x += 15; }
     // Niveau d'arme
     this.drawPower(p, top);
-    // Progression
-    const px = W / 2 - 60, pw = 120, py = top + 4;
+    // Score façon borne d'arcade + progression
+    this.drawScore(W, top);
+    const px = W / 2 - 18, pw = 84, py = top + 23;
     const prog = g.progress();
-    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(px, py, pw, 4);
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(px, py, pw, 3);
     const pg = ctx.createLinearGradient(px, 0, px + pw, 0); pg.addColorStop(0, g.pal.neb2); pg.addColorStop(1, '#ffffff');
-    ctx.fillStyle = pg; ctx.fillRect(px, py, pw * prog, 4);
-    txt(g.def.code, W / 2, py + 14, 11, 'rgba(230,230,255,0.8)', 'center', 700);
-    if (g.def.kind === 'boss' || g.def.kind === 'miniboss') { ctx.fillStyle = '#ff4f6e'; ctx.beginPath(); ctx.arc(px + pw + 6, py + 2, 3.5, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = pg; ctx.fillRect(px, py, pw * prog, 3);
+    txt(g.def.code, px + pw + 14, py + 1.5, 9, 'rgba(230,230,255,0.75)', 'center', 800);
+    if (g.def.kind === 'boss' || g.def.kind === 'miniboss') { ctx.fillStyle = '#ff4f6e'; ctx.beginPath(); ctx.arc(px - 6, py + 1.5, 3, 0, TAU); ctx.fill(); }
     // Pièces
     const cs = ico('coin', 7, (c, r) => drawCoin(c, r, 1));
     const sc = 1 + this.bump * 0.25;
@@ -166,8 +177,72 @@ export class Hud {
     this.drawSpecial();
     // Messages
     this.drawMsgs();
+    this.drawChain();
     if (this.banner) this.drawBanner();
+    if (this.ready) this.drawReady();
     if (this.warn > 0) this.drawWarning();
+    if (this.clear) this.drawClear();
+  }
+  drawScore(W, top) {
+    const g = this.g, v = Math.floor(this.scoreShown || 0);
+    const s8 = String(v).padStart(8, '0'), lead = s8.length - String(v).length;
+    ctx.font = `900 16px ${FONT}`; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    const cw = 9.6, x0 = W / 2 - (cw * 8) / 2, y = top + 9;
+    for (let i = 0; i < 8; i++) {
+      const ch = s8[i], x = x0 + i * cw + cw / 2;
+      ctx.textAlign = 'center';
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(4,2,16,0.85)'; ctx.strokeText(ch, x, y);
+      ctx.fillStyle = i < lead ? 'rgba(255,255,255,0.22)' : '#ffffff'; ctx.fillText(ch, x, y);
+    }
+    const m = g.scoreMul();
+    if (m > 1) txt('×' + m.toFixed(1).replace('.0', '').replace('.', ','), x0 + cw * 8 + 6, y, 11, hslHex((this.t * 200) % 360, 100, 70), 'left', 900);
+    txt('SCORE', x0 - 6, y, 8, 'rgba(255,210,63,0.85)', 'right', 900);
+  }
+  drawChain() {
+    if (!(this.chainA > 0)) return;
+    const n = this.chainShow, k = Math.min(1, n / 40), pop = 1 + (this.chainPop || 0) * 0.35;
+    const x = view.w - 34, y = view.h * 0.52;
+    ctx.globalAlpha = this.chainA;
+    const col = hslHex(50 - k * 50 + (n >= 40 ? (this.t * 300) % 360 : 0), 100, 62);
+    txt(String(n), x, y, (24 + k * 12) * pop, col, 'center', 900);
+    txt('HITS', x, y + 18 + k * 4, 10, '#ffffff', 'center', 900);
+    ctx.globalAlpha = 1;
+  }
+  drawReady() {
+    const t = this.ready.t, W = view.w, y = view.h * 0.62;
+    if (t < 0.5) return;
+    if (t < 1.7) {
+      const u = t - 0.5, a = Math.min(1, u * 5, (1.7 - t) * 6), sc = 1 + Math.max(0, 0.25 - u) * 2;
+      ctx.globalAlpha = a;
+      txt('READY ?', W / 2, y, 34 * sc, '#ffd23f', 'center', 900);
+      txt('Prépare-toi, pilote', W / 2, y + 26, 11, '#e8ecff', 'center', 700);
+      ctx.globalAlpha = 1;
+    } else if (t < 2.6) {
+      const u = t - 1.7, a = Math.min(1, (2.6 - t) * 4), sc = 0.6 + ease.outBack(Math.min(1, u * 4)) * 0.6 + u * 0.3;
+      ctx.globalAlpha = a;
+      ctx.globalCompositeOperation = 'lighter';
+      const gl = glow('#38f2ff', 32); ctx.globalAlpha = a * 0.6; ctx.drawImage(gl.c, W / 2 - 120, y - 60, 240, 120); ctx.globalAlpha = a;
+      ctx.strokeStyle = rgba('#ffffff', a * 0.8); ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(W / 2, y, 40 + u * 220, 14 + u * 70, 0, 0, TAU); ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+      txt('GO !', W / 2, y, 56 * sc, '#ffffff', 'center', 900);
+      ctx.globalAlpha = 1;
+    }
+  }
+  drawClear() {
+    const c = this.clear, t = c.t, W = view.w, y = view.h * 0.36;
+    const a = Math.min(1, t * 4);
+    ctx.globalAlpha = a * 0.8;
+    const gr = ctx.createLinearGradient(0, 0, W, 0); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.5, 'rgba(6,3,20,0.88)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr; ctx.fillRect(0, y - 44, W, 88 + c.bon.length * 20);
+    ctx.globalAlpha = a;
+    const sc = 1 + Math.max(0, 0.3 - t) * 2;
+    const sh = (t * 0.8) % 1.6;
+    txt('STAGE CLEAR', W / 2, y - 12, 36 * sc, hslHex(45 + Math.sin(t * 3) * 10, 100, 62), 'center', 900);
+    // reflet balayant
+    if (sh < 1) { ctx.save(); ctx.beginPath(); ctx.rect(W * (sh * 1.4 - 0.2), y - 40, 26, 60); ctx.clip(); txt('STAGE CLEAR', W / 2, y - 12, 36 * sc, '#ffffff', 'center', 900, false); ctx.restore(); }
+    txt(c.title, W / 2, y + 16, 13, '#ffffff', 'center', 800);
+    c.bon.forEach(([lab, v], i) => { const tt = t - 0.6 - i * 0.35; if (tt < 0) return; ctx.globalAlpha = Math.min(1, tt * 5); txt(lab + '   +' + fmt(v), W / 2, y + 40 + i * 20, 13, '#ffd23f', 'center', 900); });
+    ctx.globalAlpha = 1;
   }
   drawSpecial() {
     const g = this.g, p = g.player, b = this.specBtn();
@@ -261,15 +336,27 @@ export class Hud {
     ctx.globalAlpha = 1;
   }
   drawWarning() {
-    const a = Math.min(1, this.warn) * (0.6 + 0.4 * Math.sin(this.t * 14));
-    ctx.globalAlpha = a;
-    for (const y of [view.h * 0.3, view.h * 0.3 + 64]) {
-      ctx.fillStyle = 'rgba(255,30,70,0.25)'; ctx.fillRect(0, y - 12, view.w, 24);
-      ctx.fillStyle = '#ff3f6e';
-      const off = (this.t * 80) % 40;
-      for (let x = -40 + (y > view.h * 0.31 ? off : -off); x < view.w + 40; x += 40) { ctx.beginPath(); ctx.moveTo(x, y - 12); ctx.lineTo(x + 18, y - 12); ctx.lineTo(x + 6, y + 12); ctx.lineTo(x - 12, y + 12); ctx.fill(); }
+    const W = view.w, H = view.h, k = Math.min(1, this.warn), blink = 0.55 + 0.45 * Math.sin(this.t * 12);
+    // halo rouge pulsé sur les bords
+    ctx.globalCompositeOperation = 'lighter';
+    const vg = sprite('warnVig', 64, 64, (gg) => { const gr = gg.createRadialGradient(32, 32, 16, 32, 32, 46); gr.addColorStop(0, 'rgba(255,0,40,0)'); gr.addColorStop(1, 'rgba(255,20,60,0.85)'); gg.fillStyle = gr; gg.fillRect(0, 0, 64, 64); }, 0.4);
+    ctx.globalAlpha = k * blink * 0.6; ctx.drawImage(vg.c, -W * 0.25, -H * 0.1, W * 1.5, H * 1.2);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = k;
+    const yc = H * 0.34;
+    for (const [y, dir] of [[yc - 40, 1], [yc + 40, -1]]) {
+      ctx.fillStyle = 'rgba(30,0,8,0.85)'; ctx.fillRect(0, y - 11, W, 22);
+      ctx.fillStyle = '#ffcf1a';
+      const off = ((this.t * 90 * dir) % 36 + 36) % 36;
+      for (let x = -36 + off; x < W + 36; x += 36) { ctx.beginPath(); ctx.moveTo(x, y - 11); ctx.lineTo(x + 16, y - 11); ctx.lineTo(x + 4, y + 11); ctx.lineTo(x - 12, y + 11); ctx.fill(); }
+      txt(dir > 0 ? 'DANGER · DANGER · DANGER · DANGER' : 'COLOSSE EN APPROCHE · COLOSSE EN APPROCHE', W / 2, y, 9, '#1a0006', 'center', 900, false);
     }
-    txt('ALERTE', view.w / 2, view.h * 0.3 + 32, 30, '#ffffff', 'center');
+    ctx.globalAlpha = k * (0.7 + 0.3 * blink);
+    const sc = 1 + Math.max(0, this.warn - 2.8) * 1.5;
+    txt('WARNING', W / 2, yc, 44 * sc, '#ff2a4a', 'center', 900);
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = k * blink * 0.5;
+    txt('WARNING', W / 2, yc, 44 * sc, '#ffffff', 'center', 900, false);
+    ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
   }
 }

@@ -667,6 +667,7 @@ export class Boss {
     if (p.kind === 'pod') ATT.summon(this, g, { x: p.x, y: p.y });
     if (p.kind === 'segment') ATT.segBurst(this, g, { x: p.x, y: p.y });
     g.dropCoins(p.x, p.y, 25 * g.D.loot);
+    g.addScore(2500 * (1 + this.tier * 0.5), p.x, p.y, true);
     if (Math.random() < 0.5) g.dropPickup('energy', p.x, p.y);
     this.updateCoreOpen();
   }

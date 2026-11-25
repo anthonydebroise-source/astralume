@@ -148,7 +148,7 @@ export class Game {
     this.t = 0; this.dt = 0;
     this.enemies = []; this.ebs = []; this.pbs = []; this.pickups = []; this.hazards = []; this.debris = [];
     this.lines = []; this.bolts = []; this.timers = []; this.targets = []; this.beamsDraw = [];
-    this.stats = { kills: 0, spawned: 0, primaryKills: 0, coins: 0, crystals: 0, gems: 0, parts: 0, hullHits: 0, specials: 0, perfects: 0, constellations: 0, salvage: 0, novas: 0, maxChain: 0, elites: 0, eliteSpawned: 0, time: 0, coinSpawned: 0, crySpawned: 0 };
+    this.stats = { score: 0, kills: 0, spawned: 0, primaryKills: 0, coins: 0, crystals: 0, gems: 0, parts: 0, hullHits: 0, specials: 0, perfects: 0, constellations: 0, salvage: 0, novas: 0, maxChain: 0, elites: 0, eliteSpawned: 0, time: 0, coinSpawned: 0, crySpawned: 0 };
     this.player = new Player(this, o);
     this.drones = (o.drones || []).map((id, i) => new Drone(this, id, i, dronePower(id)));
     this.bg = new Background(def);
@@ -350,6 +350,14 @@ export class Game {
     if (e.hp <= 0) this.killEnemy(e);
     return true;
   }
+  // Score arcade : multiplicateur selon la chaîne d'éliminations
+  scoreMul() { return 1 + Math.min(4, Math.floor(this.combo.chain / 5) * 0.5); }
+  addScore(v, x, y, show) {
+    const pts = Math.round(v * this.scoreMul() / 10) * 10;
+    this.stats.score += pts;
+    if (show && x !== undefined) fx.text(x, y - 34, pts.toLocaleString('fr-FR').replace(/\u202f|\u00a0/g, ' '), '#fff3b0', 11 + Math.min(6, pts / 2000), 0.8, -40);
+    return pts;
+  }
   killEnemy(e, silent = false) {
     if (e.dead) return;
     e.dead = true;
@@ -382,6 +390,7 @@ export class Game {
     if (e.primary) this.stats.primaryKills++;
     this.goalKills++;
     this.combo.kill(e.x, e.y);
+    { const base = { xs: 50, s: 100, m: 300, l: 1000, snake: 800 }[T.cls] || 100; this.addScore(base * (e.elite ? 5 : 1) * (1 + this.diff * 0.5), e.x, e.y, base >= 300 || e.elite); }
     this.player.gauge = Math.min(1, this.player.gauge + 0.004);
   }
   eat(glu, prey) {
@@ -400,7 +409,7 @@ export class Game {
     const p = this.player;
     switch (k.kind) {
       case 'coin':
-        this.stats.coins += k.v;
+        this.stats.coins += k.v; this.stats.score += 10;
         this.coinStreak = this.coinStreakT > 0 ? this.coinStreak + 1 : 0; this.coinStreakT = 0.5;
         sfx.coin(this.coinStreak);
         this.hud.bump = 1;
@@ -421,7 +430,7 @@ export class Game {
         if (p.hp < p.maxHp) { p.hp++; this.msg('COQUE RÉPARÉE', '#ff8aa8', 15, 0.9); } else this.stats.coins += Math.round(15 * this.D.loot);
         sfx.heal(); break;
       case 'shipcap': {
-        const D = SHIP_BY_ID[k.id];
+        const D = SHIP_BY_ID[k.id]; this.addScore(2000, p.x, p.y, true);
         p.switchShip(k.id);
         sfx.nova(); flash(D.color, 0.45); addShake(0.25);
         this.msg(D.name.toUpperCase() + ' !', D.color, 28, 1.5, true);
@@ -605,7 +614,7 @@ export class Game {
     if (e && !e.elite) e.lootMul *= s.lm || (big ? 0.8 : 1);
   }
   startBoss(ev) {
-    this.hud.warn = 2.6;
+    this.hud.warn = 3.2;
     sfx.warning();
     music.setIntensity(0.2);
     this.later(1.8, () => { if (this.def.bossMusic || !ev.mini) music.play(this.def.bossMusic || 'boss', true); music.setIntensity(1); });
@@ -624,6 +633,7 @@ export class Game {
     { const k = this.dropPickup('parts', x, y + 30); k.v = (b.mini ? 1 : 3) * (1 + this.diff); }
     this.lootRush = 3.5;
     this.msg(b.mini ? 'GARDIEN VAINCU !' : 'COLOSSE VAINCU !', '#ffd23f', 30, 2.4, true);
+    this.addScore((b.mini ? 20000 : 50000) * (1 + b.tier * 0.5) * (1 + this.diff * 0.5), x, y, true);
     this.radio('constel');
     this.bossDead = true;
     this.later(3.2, () => { this.boss = null; this.timelineDone = true; });
@@ -662,7 +672,16 @@ export class Game {
           if (g && g.kind === 'hunt' && this.stats.elites < 3) fail = true; else clear = true;
         }
       }
-      if (clear) { this.state = 'clear'; this.endT = 0; this.lootRush = 4; sfx.victory(); this.msg(this.def.kind === 'boss' ? 'ÉTOILE RALLUMÉE !' : 'SECTEUR NETTOYÉ !', '#ffffff', 28, 2, true); music.setIntensity(0.4); }
+      if (clear) {
+        this.state = 'clear'; this.endT = 0; this.lootRush = 4; sfx.victory(); music.setIntensity(0.4);
+        // primes de fin façon borne d'arcade
+        const st = this.stats, bon = [];
+        if (st.hullHits === 0) bon.push(['SANS DÉGÂT', 10000]);
+        if (st.maxChain >= 10) bon.push(['CHAÎNE MAX ×' + st.maxChain, st.maxChain * 200]);
+        if (this.revives === 0) bon.push(['SANS CONTINUER', 5000]);
+        for (const b of bon) { b[1] *= 1 + this.diff * 0.5; st.score += b[1]; }
+        this.hud.stageClear(this.def.kind === 'boss' ? 'ÉTOILE RALLUMÉE' : 'SECTEUR NETTOYÉ', bon);
+      }
       if (fail) { this.state = 'failed'; this.endT = 0; sfx.defeat(); this.msg('ÉCHEC DU DÉFI', '#ff8aa8', 26, 2, true); }
     } else if (this.state === 'clear') {
       this.endT += dt;
@@ -943,6 +962,8 @@ export class Game {
     this.drawEB();
     this.combo.draw();
     this.bg.drawFront(this.player.super > 0);
+    // vignette (profondeur cinéma, bords assombris)
+    { const vg = sprite('vignette', 64, 96, (gg) => { const gr = gg.createRadialGradient(32, 48, 22, 32, 48, 62); gr.addColorStop(0, 'rgba(0,0,6,0)'); gr.addColorStop(1, 'rgba(0,0,6,0.55)'); gg.fillStyle = gr; gg.fillRect(0, 0, 64, 96); }, 0.3); baseT(); ctx.drawImage(vg.c, 0, 0, view.w, view.h); }
     this.hud.draw();
     drawFlash();
   }

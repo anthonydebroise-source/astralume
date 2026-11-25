@@ -43,6 +43,8 @@ register('title', {
     const el = h('div', { class: 'title-screen' });
     const scene = h('div', { style: 'position:absolute;inset:0;pointer-events:none' });
     el.append(scene,
+      h('div', { class: 'title-top' }, h('div', null, '1UP', h('b', null, String(S.best || 0).padStart(8, '0'))), h('div', { class: 'r' }, 'HI-SCORE', h('b', null, String(Math.max(S.best || 0, 100000)).padStart(8, '0')))),
+      h('div', { class: 'freeplay' }, 'FREE PLAY · CRÉDITS ∞'),
       h('div', { class: 'tap arcade-tap' }, h('span', { class: 'chev' }, '▶'), 'Touche pour jouer', h('span', { class: 'chev r' }, '◀')),
       h('div', { class: 'title-feats' }, '320 niveaux', h('i', null, '✦'), '10 vaisseaux', h('i', null, '✦'), '7 colosses'),
       h('div', { class: 'ver' }, 'v' + app.version + ' · sans pub · sans achat'));
@@ -301,7 +303,7 @@ export function continueMenu(game) {
 register('results', {
   build(R) {
     const win = R.victory;
-    const el = h('div', { class: 'results', style: 'justify-content:center' });
+    const el = h('div', { class: 'results', style: 'justify-content:flex-start;overflow-y:auto;padding-top:10px' });
     const stars = h('div', { class: 'stars' }, ...[0, 1, 2].map((i) => h('div', { class: 'star' + (i === 1 ? ' s2' : ''), html: SVG.star })));
     const lines = h('div', { class: 'panel' });
     const add = (label, cur, n, cls = '') => {
@@ -325,9 +327,16 @@ register('results', {
     const xpb = h('div', { class: 'bar' }, h('i', { style: `width:${Math.round(R.xpFrom * 100)}%` }));
     const statsLine = h('div', { class: 'muted small center', style: 'margin-top:8px' }, `${R.stats.kills} aliens · chaîne max ${R.stats.maxChain} · ${R.stats.constellations} constellation(s)` + (R.stats.perfects ? ` · ${R.stats.perfects} PARFAIT` : ''));
     const next = Math.min(320, R.def.L + 1);
+    const scoreB = h('b', null, '00000000');
+    const scoreBox = h('div', { class: 'arc-score' }, h('div', { class: 'arc-lab' }, 'SCORE'), scoreB,
+      h('div', { class: 'arc-hi' }, R.record ? h('span', { class: 'newrec-badge' }, 'NEW RECORD !') : `RECORD ${String(R.prevHi || 0).padStart(8, '0')}`),
+      R.rank ? h('div', { class: 'rank rank-' + R.rank }, R.rank) : null);
+    R.scoreEl = scoreB;
     el.append(...[
-      h('h1', { class: win ? 'win' : 'lose' }, win ? (R.def.kind === 'boss' ? 'Étoile rallumée !' : 'Victoire !') : 'Défaite'),
+      h('h1', { class: 'arc-title ' + (win ? 'win' : 'lose') }, win ? 'STAGE CLEAR' : 'GAME OVER'),
+      h('div', { class: 'center', style: 'font-weight:800;margin-top:-4px' }, win ? (R.def.kind === 'boss' ? 'Étoile rallumée !' : 'Secteur nettoyé !') : 'Coque détruite'),
       h('div', { class: 'center muted' }, `Secteur ${R.def.code} · ${R.def.name} · ${DIFFS[R.def.diff].name}`),
+      scoreBox,
       win ? stars : null,
       R.first && win ? h('div', { class: 'newrec' }, 'Premier passage — récompenses doublées !') : null,
       lines,
@@ -346,6 +355,8 @@ register('results', {
   enter(R) {
     music.play('menu');
     let t = 0;
+    { const t0 = performance.now(); const step = (now) => { const k = Math.min(1, (now - t0) / 1400), v = Math.round(R.score * (1 - (1 - k) ** 3)); if (R.scoreEl) R.scoreEl.textContent = String(v).padStart(8, '0'); if (Math.random() < 0.6) sfx.tick(); if (k < 1 && R.scoreEl && R.scoreEl.isConnected) requestAnimationFrame(step); }; setTimeout(() => requestAnimationFrame(step), 200); }
+    if (R.rank) setTimeout(() => { const r = document.querySelector('.rank'); if (r) { r.classList.add('on'); sfx.perfect ? sfx.perfect() : sfx.star(2); } }, 1700);
     R.anims.forEach((a, i) => setTimeout(() => {
       const t0 = performance.now();
       const step = (now) => { const k = Math.min(1, (now - t0) / 700); a.el.textContent = fmt(a.n * k); if (Math.random() < 0.5) sfx.tick(); if (k < 1 && a.el.isConnected) requestAnimationFrame(step); };

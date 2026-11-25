@@ -87,6 +87,13 @@ function endLevel(res) {
   total.crystals += newStarCrystals;
   if (chest) total.chest = chest;
   grant(total);
+  // Score arcade : record du secteur, meilleur score, rang
+  if (!S.hi) S.hi = {};
+  const score = Math.round(st.score || 0), prevHi = S.hi[L] || 0;
+  const record = score > prevHi && score > 0;
+  if (record) S.hi[L] = score;
+  S.best = Math.max(S.best || 0, score);
+  const rank = victory ? (res.stars >= 3 && st.hullHits === 0 ? 'S' : res.stars >= 3 ? 'A' : res.stars >= 2 ? 'B' : 'C') : null;
   // 3) Statistiques, missions, succès
   track('kills', st.kills); track('coins', got.coins); track('crystals', got.crystals); track('gems', got.gems); track('parts', got.parts);
   track('specials', st.specials); track('perfects', st.perfects); track('constel', st.constellations);
@@ -109,7 +116,7 @@ function endLevel(res) {
   save();
   app.game = null;
   clearParticles();
-  show('results', { victory, stars: res.stars, def, stats: st, got, bonus, first, chest, newStarCrystals, shardsN, shardShip: S.ship, xp, lvlFrom, xpFrom, xpTo, levelUps });
+  show('results', { victory, stars: res.stars, def, stats: st, got, bonus, first, chest, newStarCrystals, shardsN, shardShip: S.ship, score, prevHi, record, rank, xp, lvlFrom, xpFrom, xpTo, levelUps });
 }
 
 // ---------- Boucle ----------
