@@ -22,6 +22,8 @@ import { ui, go, show, clearScreens, menuUpdate, menuDraw, initUINotifications }
 import { pauseMenu, continueMenu, briefingMenu } from './ui/screens-main.js';
 import './ui/screens-meta.js';
 import './ui/screens-versus.js';
+import './ui/screens-quest.js';
+import { isLit } from './economy/quest.js';
 
 // ---------- Démarrage ----------
 load();
@@ -174,6 +176,7 @@ function endLevel(res) {
   // 2) Prime de victoire
   const bonus = { coins: 0, crystals: 0, gems: 0, parts: 0 };
   let first = false, chest = null, newStarCrystals = 0, rec = null;
+  const qk = def.kind === 'boss' && L % 10 === 0 ? L / 10 : 0, qBefore = qk ? [0, 1, 2].map((c) => isLit(qk, c)) : null;
   if (victory) {
     rec = recordLevel(L, d, res.stars);
     first = rec.first;
@@ -233,7 +236,8 @@ function endLevel(res) {
   save();
   app.game = null;
   clearParticles();
-  show('results', { victory, stars: res.stars, def, stats: st, got, bonus, first, chest, newStarCrystals, shardsN, shardShip: S.ship, score, prevHi, record, rank, seasonPts, xp, lvlFrom, xpFrom, xpTo, levelUps });
+  const questNew = qk && victory ? [0, 1, 2].filter((c) => !qBefore[c] && isLit(qk, c)).length > 0 : false;
+  show('results', { victory, stars: res.stars, def, stats: st, got, bonus, first, chest, newStarCrystals, shardsN, shardShip: S.ship, score, prevHi, record, rank, seasonPts, xp, lvlFrom, xpFrom, xpTo, levelUps, questNew });
 }
 
 // ---------- Boucle ----------

@@ -20,6 +20,7 @@ import { ctx, setT, baseT, view } from '../engine/renderer.js';
 import { glow } from '../engine/sprites.js';
 import { iconURL } from '../game/art.js';
 import { versusPanel } from './screens-versus.js';
+import { objective, claimableAll, currentCycle, CYCLES, litCount, nextBig, starExtra, STARS } from '../economy/quest.js';
 import { fmt, TAU } from '../engine/math.js';
 import { sfx } from '../audio/sfx.js';
 import { music } from '../audio/music.js';
@@ -97,16 +98,24 @@ register('hub', {
       side('star', 'Événement', '#ffb43a', () => go('modes'), S.weekly && S.weekly.wk === wk ? 0 : 1, ev.icon),
       side('map', 'Carte', '#7dff9a', () => go('map'), starRewardsAvailable()),
       side('trophy', 'Trophées', '#c9a0ff', () => go('trophies'), 0));
-    hero.append(planet, left, right, showcase,
-      h('div', { class: 'wname' }, `Monde ${W.w + 1} · ${info.code}`),
-      h('div', { class: 'wtitle', style: `color:${W.pal.neb2}` }, W.name),
+    // carte de quête : l'objectif principal, toujours sous les yeux
+    const qc = currentCycle(), ob = objective(qc), qn = claimableAll(), nb = nextBig(qc);
+    const qcard = h('button', { class: 'questcard', style: `--c:${ob.done ? '#ffd23f' : ob.act.color}`, onclick: () => { sfx.ui(); go('quest'); } },
+      h('div', { class: 'qc-crown', html: '<svg viewBox="0 0 24 24"><path d="M3 18h18l-1.5-9-4.5 4-3-7-3 7-4.5-4z" fill="currentColor"/><circle cx="12" cy="14" r="1.6" fill="#fff"/></svg>' }),
+      h('div', { class: 'qc-mid' },
+        h('small', null, ob.done ? 'LA COURONNE' : (qc ? `NOUVELLE AUBE · ${CYCLES[qc].name.toUpperCase()}` : `QUÊTE · ACTE ${['I', 'II', 'III', 'FINAL'][ob.act.n - 1]}`)),
+        h('b', null, ob.done ? 'Couronne reforgée !' : `Rallume ${ob.star.name}`),
+        h('em', null, ob.done ? 'Passe à la Nouvelle Aube' : nb ? (starExtra(nb.k, qc).map((e) => e.type === 'relic' ? 'Relique ' + e.name : e.type === 'ship' ? 'Vaisseau ' + e.name : e.type === 'drone' ? 'Drone ' + e.name : 'Fin d’acte')[0] + ` · étoile ${nb.k}`) : `Monde ${ob.world + 1}`)),
+      h('div', { class: 'qc-n' }, h('b', null, litCount(qc)), h('small', null, '/32')), badge(qn));
+    hero.append(planet, left, right, showcase, qcard,
+      h('div', { class: 'wname' }, `Monde ${W.w + 1} · ${W.name}`),
       btn(SVG.play.replace('<svg', '<svg style="width:22px;height:22px"') + ` JOUER ${info.code}`, 'primary big pulse', () => levelSheet(L)));
     // --- barre de navigation basse ---
     const nav = (ic, label, col, fn, n, main) => h('button', { class: 'navb' + (main ? ' main' : ''), style: `--c:${col}`, onclick: () => { sfx.ui(); fn(); } },
       h('span', { class: 'ni', html: SVG[ic] }), h('small', null, label), badge(n));
     const navbar = h('div', { class: 'navbar' },
       nav('chest', 'Trésors', '#ffd23f', () => go('chests'), (S.freeChests || []).length + (wc === null ? 1 : 0)),
-      nav('target', 'Quêtes', '#47ffa3', () => go('missions'), missionsBadge() + achBadge()),
+      nav('target', 'Missions', '#47ffa3', () => go('missions'), missionsBadge() + achBadge()),
       nav('ship', 'Hangar', '#ff4fd8', () => go('hangar'), 0, true),
       nav('bolt', 'Duel', '#38f2ff', () => go('versus'), 0),
       nav('play', 'Modes', '#ffb43a', () => go('modes'), 0));
@@ -114,7 +123,8 @@ register('hub', {
   },
   enter() {
     music.play('menu');
-    if (S.daily.pending) setTimeout(() => { if (ui.current === 'hub' && S.daily.pending) dailyPopup(); }, 450);
+    // récit d'abord (prologue, étoiles rallumées), puis le cadeau du jour
+    setTimeout(() => { if (ui.current !== 'hub') return; import('./screens-quest.js').then((Q) => Q.runTales()).then(() => { if (ui.current === 'hub' && S.daily.pending && !document.querySelector('.modal-back')) dailyPopup(); }); }, 450);
   },
 });
 
@@ -184,12 +194,12 @@ register('map', {
       img.getContext('2d').drawImage(cv, 0, 0);
       const card = h('div', { class: 'wcard' + (locked ? ' locked' : '') + (W.w === cw ? ' current' : ''), onclick: () => { if (locked) { sfx.deny(); toast('Monde verrouillé', `Terminez le monde ${W.w} pour l’atteindre.`, SVG.lock, '#9aa0d8'); return; } sfx.open(); go('world', { w: W.w }); } },
         img, h('div', { class: 'info' }, h('div', { class: 'wn' }, `Monde ${W.w + 1} · ${W.type === 'planet' ? 'Planète' : 'Espace'}`), h('div', { class: 'wt', style: `color:${W.pal.neb2}` }, W.name),
-          h('div', { class: 'ws' }, `★ ${stars} / 90`), lit ? h('div', { class: 'relit' }, '✦ Étoile rallumée') : h('div', { class: 'muted small' }, W.lore)),
+          h('div', { class: 'ws' }, `★ ${stars} / 90 · Étoile ${STARS[W.w].name}`), lit ? h('div', { class: 'relit' }, `✦ ${STARS[W.w].name} rallumée`) : h('div', { class: 'muted small' }, W.lore)),
         locked ? h('div', { class: 'lockico', html: SVG.lock, style: 'width:22px;height:22px' }) : null);
       list.append(card);
     }
     const n = starRewardsAvailable();
-    const el = h('div', null, topbar('Carte stellaire'), h('div', { class: 'scroll' }, list));
+    const el = h('div', null, topbar('Carte stellaire', btn('👑 Couronne', 'small gold', () => go('quest'))), h('div', { class: 'scroll' }, list));
     return el;
   },
   enter(p, el) {
@@ -295,6 +305,7 @@ export function levelSheet(L) {
       h('div', { class: 'muted center', style: 'letter-spacing:.2em;font-weight:800;font-size:12px' }, `SECTEUR ${info.code} · ${info.kindName.toUpperCase()}`),
       h('h2', { style: `color:${info.world.pal.neb2}` }, info.name),
       h('p', { class: 'center' }, desc), trait,
+      info.kind === 'boss' ? h('p', { class: 'center', style: 'color:#ffd23f;font-weight:800' }, `✦ Ce colosse garde l’étoile ${STARS[Math.floor(L / 10) - 1].name} — abats-le pour la rallumer (quête).`) : null,
       tabs,
       h('div', { class: 'subtitle' }, first ? 'Récompenses (premier passage ×2)' : 'Récompenses'),
       rewardRow(rw),
@@ -502,6 +513,7 @@ register('results', {
     setTimeout(() => { if (R.xpEl) R.xpEl.style.width = Math.round(R.xpTo * 100) + '%'; }, 900);
     let delay = 1600;
     for (const up of R.levelUps) { setTimeout(() => rewardPopup(`Pilote niveau ${up.lvl} !`, up.reward, null, 'Votre expérience paie !'), delay); delay += 400; }
+    if (R.questNew) setTimeout(() => { const wait = () => { if (ui.current !== 'results') return; if (document.querySelector('.modal-back')) { setTimeout(wait, 500); return; } import('./screens-quest.js').then((Q) => Q.runTales()); }; wait(); }, delay + 900);
   },
 });
 

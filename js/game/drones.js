@@ -109,7 +109,7 @@ export class Drone {
     const p = g.player;
     this.x = p.x; this.y = p.y + 20; this.t = rand(10); this.cd = 0.5;
     this.state = 'idle'; this.charges = 3; this.a = slot * Math.PI;
-    this.max = this.life = droneDuration(id); this.dead = false; this.inT = 0;
+    this.max = this.life = droneDuration(id) * (1 + ((g && g.player && g.player.qb) ? g.player.qb.drone : 0)); this.dead = false; this.inT = 0;
   }
   home() { const p = this.g.player; return [p.x + (this.slot ? 47 : -47), p.y + 12 + Math.sin(this.t * 2 + this.slot) * 3]; }
   update(dt) {

@@ -9,6 +9,7 @@ import { SHIP_FX, SHIP_SCALE } from './ships.js';
 import { SHIP_BY_ID } from '../economy/data.js';
 import { shipStats } from '../economy/economy.js';
 import { S } from '../economy/save.js';
+import { questBonus } from '../economy/quest.js';
 import { sfx } from '../audio/sfx.js';
 import { music } from '../audio/music.js';
 import { explode } from './fx.js';
@@ -26,9 +27,12 @@ export class Player {
     const st = shipStats(this.id);
     this.dmgMul0 = st.dmg; this.rateMul0 = st.rate; this.specMul = st.spec; this.chargeMul = st.charge; this.aw = st.aw; this.ev = st.ev || 0; this.escT = 0; this.aura = st.aura; this.auraT = 3;
     this.crit = S.up.crit * 0.03;
-    this.maxHp = g.def.glass ? 1 : 3 + S.up.hull;
+    // reliques de la Couronne (quête) : bonus permanents
+    const qb = this.qb = g.def.mode === 'duel' || g.def.mode === 'race' ? { dmg: 0, coins: 0, shield: 0, drone: 0, hull: 0, charge: 0 } : questBonus();
+    this.maxHp = g.def.glass ? 1 : 3 + S.up.hull + qb.hull;
     this.hp = this.maxHp;
-    this.shield = g.def.glass ? 0 : S.up.shield + (o.boosts.shield ? 1 : 0);
+    this.shield = g.def.glass ? 0 : S.up.shield + qb.shield + (o.boosts.shield ? 1 : 0);
+    this.dmgMul0 *= 1 + qb.dmg; this.chargeMul *= 1 + qb.charge;
     this.wlvl = clamp(1 + S.up.arsenal + (o.boosts.power ? 2 : 0), 1, MAXW);
     this.gauge = 0.3;
     this.superMax = 8 + S.up.nova;
@@ -55,7 +59,7 @@ export class Player {
     this.id = id; this.meta = SHIP_BY_ID[id]; this.F = SHIP_FX[id];
     this.col = this.meta.color; this.col2 = this.meta.color2;
     const st = shipStats(id);
-    this.dmgMul0 = st.dmg; this.rateMul0 = st.rate; this.specMul = st.spec; this.chargeMul = st.charge; this.aw = st.aw; this.ev = st.ev || 0; this.aura = st.aura; this.auraT = 2;
+    this.dmgMul0 = st.dmg * (1 + this.qb.dmg); this.rateMul0 = st.rate; this.specMul = st.spec; this.chargeMul = st.charge * (1 + this.qb.charge); this.aw = st.aw; this.ev = st.ev || 0; this.aura = st.aura; this.auraT = 2;
     this.beams.length = 0; this.blades.length = 0; this.special = null;
     this.phoenix = id === 'phenix' ? 1 : 0;
     this.wcd = 0.15; this.inv = Math.max(this.inv, 1.2);

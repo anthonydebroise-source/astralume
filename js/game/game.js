@@ -522,7 +522,7 @@ export class Game {
     if (T.death) T.death(e, this);
     if (silent && !e.data.pop) return;
     if (e.data.pop) return;
-    const v = T.coins * this.D.loot * e.lootMul * this.coinMul() * (1 + S.up.fortune * 0.07);
+    const v = T.coins * this.D.loot * e.lootMul * this.coinMul() * (1 + S.up.fortune * 0.07) * (1 + this.player.qb.coins);
     this.dropCoins(e.x, e.y, v);
     const luck = 1 + S.up.luck * 0.1;
     if (Math.random() < 0.012 * luck * (T.cls === 'm' || T.cls === 'l' ? 2 : 1)) {

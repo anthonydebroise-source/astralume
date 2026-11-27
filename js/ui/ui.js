@@ -153,10 +153,13 @@ export function toast(title, text, iconHtml = SVG.trophy, color) {
 // Fenêtre de récompense (liste animée + bouton Récupérer)
 export function rewardRow(bundle, big = false) {
   const row = h('div', { class: 'rewards' });
-  for (const e of bundleEntries(bundle)) {
+  // coffres identiques regroupés (« Coffre Astral ×5 »)
+  const ents = [];
+  for (const e of bundleEntries(bundle)) { const same = e.type === 'chest' && ents.find((x) => x.type === 'chest' && x.id === e.id); if (same) same.n++; else ents.push({ ...e }); }
+  for (const e of ents) {
     let icon, label;
     if (e.type === 'cur') { icon = iconURL(e.id, 64); label = '+' + fmt(e.n); }
-    else if (e.type === 'chest') { icon = iconURL('chest_' + e.id, 64); label = { neon: 'Coffre Néon', prism: 'Coffre Prisme', astral: 'Coffre Astral', boss: 'Coffre de Colosse' }[e.id]; }
+    else if (e.type === 'chest') { icon = iconURL('chest_' + e.id, 64); label = { neon: 'Coffre Néon', prism: 'Coffre Prisme', astral: 'Coffre Astral', boss: 'Coffre de Colosse' }[e.id] + (e.n > 1 ? ' ×' + e.n : ''); }
     else if (e.type === 'boost') { icon = iconURL('boost_' + e.id, 64); label = BOOSTS[e.id].name + (e.n > 1 ? ' ×' + e.n : ''); }
     else if (e.type === 'ship') { icon = iconURL('nova', 64); label = 'Vaisseau : ' + SHIP_BY_ID[e.id].name; }
     else if (e.type === 'drone') { icon = iconURL('energy', 64); label = 'Drone : ' + DRONE_BY_ID[e.id].name; }
