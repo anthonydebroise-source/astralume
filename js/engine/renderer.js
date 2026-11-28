@@ -20,7 +20,7 @@ export function onResize(cb) { resizeCbs.push(cb); }
 
 export function initRenderer() {
   canvas = document.getElementById('game');
-  ctx = canvas.getContext('2d', { alpha: false });
+  ctx = canvas.getContext('2d', { alpha: true }); // transparent : le décor 3D (WebGL) est dessous
   resize();
   window.addEventListener('resize', () => resize());
   window.addEventListener('orientationchange', () => setTimeout(resize, 250));

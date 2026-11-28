@@ -926,6 +926,7 @@ export class Game {
     else this.updateWorld(dt);
   }
   updateWorld(dt) {
+    this.bg.swayX = (this.player.x - view.w / 2) * 0.55; // parallaxe quand le vaisseau se déplace
     this.bg.update(dt);
     this.director(dt);
     this.updateModes();

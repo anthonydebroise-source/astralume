@@ -4,6 +4,8 @@ import { RNG, TAU, rgba, lighten, darken, mixHex, hash32 } from '../engine/math.
 import { view, ctx, baseT } from '../engine/renderer.js';
 import { makeCanvas, glow } from '../engine/sprites.js';
 import { nebulaTexture, gasGiant, rockyMoon, rockSprite, cloudSprite, stationSprite, hiveSprite, monolithSprite, Terrain } from './bgart.js';
+import { bg3dScene, bg3dRender, bg3dShow, bg3dAvailable } from '../engine/bg3d.js';
+import { S as SAVE } from '../economy/save.js';
 
 const GROUND_FOR_SPACE = { nebula: 'rock', amber: 'rock', reef: 'coral', hive: 'flesh', quantum: 'grid', heart: 'flesh' };
 const SIDE_FOR = { reef: 'coral', hive: 'flesh', heart: 'flesh', quantum: 'glitch' };
@@ -35,6 +37,9 @@ export class Background {
     this.groundKind = this.planet ? (this.th.ground || GROUND_FOR_SPACE[this.th.id] || 'rock') : null;
     this.menu = !!opts.menu;
     this.build();
+    // décor spatial en vraie 3D (WebGL) quand c'est possible
+    this.g3 = null; this.g3cam = 0; this.swayX = 0;
+    if (!this.planet && (SAVE.settings.quality || 'auto') !== 'low') { try { if (bg3dAvailable()) this.g3 = bg3dScene(this.def); } catch (e) { console.warn(e); this.g3 = null; } }
   }
   build() {
     const P = this.pal, rng = new RNG(this.seed);
@@ -328,6 +333,7 @@ export class Background {
     this.t += dt;
     this.beat = Math.max(0, this.beat - dt * 3);
     const sp = speed * (1 + this.warp * 6);
+    this.g3cam += dt * 135 * sp; this.g3sp = sp; this.g3dt = dt;
     this.scroll += dt * 58 * sp;
     for (const s of this.stars) s.off = (s.off + dt * s.v * 1.6 * sp) % s.h;
     if (this.side) this.sideOff = (this.sideOff + dt * 90 * sp) % this.side.H;
@@ -401,6 +407,15 @@ export class Background {
     while (y < view.h) { ctx.drawImage(n, 0, y, view.w, H); y += H; }
   }
   draw() {
+    if (this.g3 && bg3dRender(this.g3, { t: this.t, camY: this.g3cam, camX: this.swayX, dt: this.g3dt, speed: this.g3sp || 1 })) {
+      // le fond 3D est dessiné sous le canvas du jeu : on ne garde ici que les éléments proches
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      baseT();
+      if (this.mega) this.drawMega();
+      if (this.side) this.drawSides();
+      return;
+    }
+    bg3dShow(false);
     baseT();
     ctx.drawImage(this.base.c, 0, 0, view.w, view.h);
     if (!this.planet) {
