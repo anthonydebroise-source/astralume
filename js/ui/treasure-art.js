@@ -4,6 +4,7 @@ import { glow, makeCanvas } from '../engine/sprites.js';
 import { TAU, rgba, lighten, darken } from '../engine/math.js';
 import { Sculptor, drawSculpt, drawBloom } from '../engine/sculpt.js';
 import { ICONS } from '../game/art.js';
+import { chest3D, LID_STEPS } from './chest3d.js';
 
 const STEEL = '#c3cad8', GOLD = '#ecb44e', DARK = '#1a1c28';
 const circ = (x, y, r) => (g) => g.arc(x, y, r, 0, TAU);
@@ -173,8 +174,52 @@ function padArt(id, px) {
   return A;
 }
 
+// Version 3D (WebGL) : socle, corps et couvercle cuits en vraie 3D
+function drawChest3D(A, x, y, s, id, St, t, shake, open) {
+  const c = ctx;
+  setT(x, y, s);
+  const sh = shake ? Math.sin(t * 60) * 3 * shake : 0, bob = open > 0 || shake > 0 ? 0 : Math.sin(t * 2.2) * 1.6;
+  c.globalCompositeOperation = 'lighter';
+  const g1 = glow(St.glow, 32);
+  c.globalAlpha = Math.min(1, 0.5 + 0.15 * Math.sin(t * 3) + open * 0.6 + shake * 0.3); c.drawImage(g1.c, -78, -86, 156, 150);
+  if (id !== 'neon') for (let i = 0; i < 10; i++) { const a = (i / 10) * TAU + t * 0.25; c.globalAlpha = (id === 'astral' ? 0.16 : 0.1) * (1 + shake + open); c.fillStyle = St.glow; c.beginPath(); c.moveTo(0, -6); c.arc(0, -6, 86, a - 0.07, a + 0.07); c.closePath(); c.fill(); }
+  c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+  const Y0 = 26; // le pied du coffre
+  c.save(); c.translate(0, Y0); drawSculpt(c, A.pad); c.globalCompositeOperation = 'lighter'; drawBloom(c, A.pad, 0.7 + 0.3 * Math.sin(t * 3)); c.restore();
+  c.globalCompositeOperation = 'source-over';
+  c.save(); c.translate(sh, Y0 + bob); c.rotate(sh * 0.02);
+  if (shake > 0.2) { // lumière qui fuit par la fente
+    c.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 8; i++) { const a = -Math.PI / 2 + (i - 3.5) * 0.3 + Math.sin(t * 5 + i) * 0.05; c.globalAlpha = 0.2 * shake; c.fillStyle = St.glow; c.beginPath(); c.moveTo(-28 + i * 8, -26); c.lineTo(-28 + i * 8 + Math.cos(a) * 150, -26 + Math.sin(a) * 150); c.lineTo(-22 + i * 8 + Math.cos(a) * 150, -26 + Math.sin(a) * 150); c.closePath(); c.fill(); }
+    c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+  }
+  drawSculpt(c, A.base);
+  c.globalCompositeOperation = 'lighter'; drawBloom(c, A.base, 0.6 + 0.3 * Math.sin(t * 4) + shake * 0.6 + open); c.globalCompositeOperation = 'source-over';
+  const step = Math.min(LID_STEPS.length - 1, Math.round(open * (LID_STEPS.length - 1)));
+  const L = A.lids[step] || A.lids[0];
+  drawSculpt(c, L); c.globalCompositeOperation = 'lighter'; drawBloom(c, L, 0.6 + shake * 0.6 + open * 0.5); c.globalCompositeOperation = 'source-over';
+  if (open > 0.3) { // colonne de lumière qui jaillit du trésor
+    c.globalCompositeOperation = 'lighter';
+    const gr = c.createLinearGradient(0, -26, 0, -200); gr.addColorStop(0, rgba('#ffffff', 0.85 * open)); gr.addColorStop(0.3, rgba(St.glow, 0.5 * open)); gr.addColorStop(1, rgba(St.glow, 0));
+    c.fillStyle = gr; c.beginPath(); c.moveTo(-30, -24); c.lineTo(28, -28); c.lineTo(52, -200); c.lineTo(-56, -200); c.closePath(); c.fill();
+    c.globalCompositeOperation = 'source-over';
+  }
+  c.restore();
+  // étincelles en orbite
+  c.globalCompositeOperation = 'lighter';
+  const sp = glow('#ffffff', 16);
+  for (let i = 0; i < (id === 'neon' ? 3 : 5); i++) {
+    const a = t * (0.9 + i * 0.13) + i * 1.9, sx = Math.cos(a) * (50 + (i % 2) * 8), sy = Y0 - 18 + Math.sin(a) * (16 + (i % 3) * 4), front = Math.sin(a) > 0;
+    c.globalAlpha = (front ? 0.95 : 0.4) * (0.6 + 0.4 * Math.sin(t * 7 + i));
+    const r = front ? 5 : 3; c.drawImage(sp.c, sx - r, sy - r, r * 2, r * 2);
+    c.fillStyle = St.glow; c.fillRect(sx - 0.4, sy - r * 0.9, 0.8, r * 1.8); c.fillRect(sx - r * 0.9, sy - 0.4, r * 1.8, 0.8);
+  }
+  c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+  baseT();
+}
 export function drawChestLux(x, y, s, C, t, shake = 0, open = 0) {
   const c = ctx, id = C.id || 'neon', St = STYLE[id] || STYLE.neon;
+  { const step = Math.min(LID_STEPS.length - 1, Math.round(open * (LID_STEPS.length - 1))); const A3 = chest3D(id, view.rs * s * 1.05, step); if (A3 && A3.base) { drawChest3D(A3, x, y, s, id, St, t, shake, open); return; } }
   setT(x, y, s);
   const px = view.rs * s;
   const A = chestArt(id, px * 1.05), Pd = padArt(id, px);
@@ -231,6 +276,15 @@ export function drawChestLux(x, y, s, C, t, shake = 0, open = 0) {
 }
 // Icône de coffre (DOM) : même rendu sculpté, figé
 export function drawChestIcon(g, r, id) {
+  const A3 = chest3D(id, 2.5, 0);
+  if (A3 && A3.base) {
+    const St3 = STYLE[id] || STYLE.neon, k = r / 52;
+    g.save(); g.scale(k, k); g.translate(0, 22);
+    const gl = glow(St3.glow, 32); g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.5; g.drawImage(gl.c, -62, -80, 124, 120); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+    for (const S of [A3.base, A3.lids[0]]) { drawSculpt(g, S); g.globalCompositeOperation = 'lighter'; drawBloom(g, S, 0.8); g.globalCompositeOperation = 'source-over'; }
+    g.restore();
+    return;
+  }
   const A = chestArt(id, 2.5), St = STYLE[id] || STYLE.neon;
   const k = r / 46;
   g.save(); g.scale(k, k); g.translate(-3, 4);
