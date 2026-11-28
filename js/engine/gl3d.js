@@ -195,18 +195,46 @@ let GL = null, glFailed = false;
 const VS = `#version 300 es
 precision highp float;
 in vec3 aP; in vec3 aN; in vec3 aC; in vec4 aA; in vec4 aX;
-uniform mat3 uR; uniform vec4 uBox; uniform float uZ;
+uniform mat3 uR; uniform vec4 uBox; uniform float uZ; uniform highp int uPass;
+uniform vec3 uLU; uniform vec3 uLV; uniform vec3 uLD; uniform vec4 uLB; uniform vec2 uLZ;
 out vec3 vN; out vec3 vC; out vec4 vA; out vec4 vX; out vec3 vO; out vec3 vV;
 void main() {
   vec3 p = uR * aP; vV = p; vO = aP;
   vN = uR * aN; vC = aC; vA = aA; vX = aX;
+  if (uPass == 2) { // carte d'ombre : vue depuis la lumière principale
+    gl_Position = vec4((dot(p, uLU) - uLB.x) / uLB.z * 2.0 - 1.0, (dot(p, uLV) - uLB.y) / uLB.w * 2.0 - 1.0, 1.0 - 2.0 * (dot(p, uLD) - uLZ.x) / uLZ.y, 1.0);
+    return;
+  }
   gl_Position = vec4((p.x - uBox.x) / uBox.z * 2.0 - 1.0, 1.0 - (p.y - uBox.y) / uBox.w * 2.0, -p.z / uZ, 1.0);
 }`;
 const FS = `#version 300 es
 precision highp float;
 in vec3 vN; in vec3 vC; in vec4 vA; in vec4 vX; in vec3 vO; in vec3 vV;
-uniform int uPass; uniform vec3 uKey; uniform vec3 uKeyC; uniform vec3 uFill; uniform vec3 uFillC; uniform vec3 uRimC; uniform vec3 uSky; uniform vec3 uGround; uniform vec3 uHor; uniform float uExp;
+uniform highp int uPass; uniform vec3 uKey; uniform vec3 uKeyC; uniform vec3 uFill; uniform vec3 uFillC; uniform vec3 uRimC; uniform vec3 uSky; uniform vec3 uGround; uniform vec3 uHor; uniform float uExp;
+uniform sampler2D uSh; uniform sampler2D uDp; uniform vec3 uLU; uniform vec3 uLV; uniform vec3 uLD; uniform vec4 uLB; uniform vec2 uLZ; uniform vec2 uRes; uniform float uZ; uniform float uAOr; uniform float uShOn;
 out vec4 o;
+// ombre portée de la lumière principale (filtrée)
+float shadowAt(vec3 p) {
+  if (uShOn < 0.5) return 1.0;
+  vec2 uv = (vec2(dot(p, uLU), dot(p, uLV)) - uLB.xy) / uLB.zw;
+  float dz = 0.5 - (dot(p, uLD) - uLZ.x) / uLZ.y + 0.5, s = 0.0;
+  vec2 tx = 1.0 / vec2(textureSize(uSh, 0));
+  for (int i = -2; i <= 2; i++) for (int j = -2; j <= 2; j++) s += texture(uSh, uv + vec2(float(i), float(j)) * tx * 1.2).r + 0.0035 >= dz ? 1.0 : 0.0;
+  return s / 25.0;
+}
+// occlusion ambiante en espace écran (creux, jonctions entre pièces)
+float aoAt() {
+  if (uAOr <= 0.0) return 1.0;
+  vec2 uv = gl_FragCoord.xy / uRes;
+  float z0 = -(texture(uDp, uv).r * 2.0 - 1.0) * uZ, occ = 0.0;
+  for (int i = 0; i < 16; i++) {
+    float a = float(i) * 2.39996, r = uAOr * (0.25 + 0.75 * fract(float(i) * 0.618));
+    vec2 q = uv + vec2(cos(a), sin(a)) * r / uRes;
+    float z = -(texture(uDp, q).r * 2.0 - 1.0) * uZ, dz = z - z0;
+    occ += smoothstep(0.4, 5.0, dz) * (1.0 - smoothstep(18.0, 40.0, dz));
+  }
+  return clamp(1.0 - occ / 16.0 * 1.25, 0.0, 1.0);
+}
 float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
 float noise(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x), mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
@@ -242,8 +270,9 @@ void main() {
   vec3 diff = base * (1.0 - metal);
   float ndv = max(dot(N, V), 0.001);
   vec3 col = vec3(0.0);
+  float sh = shadowAt(vV), ao = aoAt();
   for (int i = 0; i < 2; i++) {
-    vec3 L = i == 0 ? normalize(uKey) : normalize(uFill), Lc = i == 0 ? uKeyC : uFillC;
+    vec3 L = i == 0 ? normalize(uKey) : normalize(uFill), Lc = i == 0 ? uKeyC * sh : uFillC * mix(1.0, ao, 0.6);
     float ndl = dot(N, L), w = max((ndl + sss) / (1.0 + sss), 0.0), nl = max(ndl, 0.0);
     vec3 H = normalize(L + V); float ndh = max(dot(N, H), 0.0);
     float a = rough * rough, a2 = a * a, dd = ndh * ndh * (a2 - 1.0) + 1.0, D = a2 / (3.14159 * dd * dd);
@@ -254,12 +283,12 @@ void main() {
     if (sss > 0.0) col += base * pow(max(-ndl, 0.0), 2.0) * sss * 0.35 * Lc; // lumière qui traverse
   }
   vec3 amb = mix(uGround, uSky, 0.5 - 0.5 * N.y);
-  col += diff * amb * 0.55;
+  col += diff * amb * 0.55 * ao;
   vec3 R = reflect(-V, N);
   vec3 Fe = F0 + (max(vec3(1.0 - rough), F0) - F0) * pow(1.0 - ndv, 5.0);
-  col += env(R, rough) * Fe * (0.35 + 0.65 * metal);
-  if (coat > 0.0) { float fc = 0.04 + 0.96 * pow(1.0 - ndv, 5.0); col += env(R, 0.05) * fc * coat * 0.6; }
-  col += uRimC * pow(1.0 - ndv, 3.0) * 0.55;
+  col += env(R, rough) * Fe * (0.35 + 0.65 * metal) * mix(ao, 1.0, 0.25) * mix(0.55, 1.0, sh);
+  if (coat > 0.0) { float fc = 0.04 + 0.96 * pow(1.0 - ndv, 5.0); col += env(R, 0.05) * fc * coat * 0.6 * ao; }
+  col += uRimC * pow(1.0 - ndv, 3.0) * 0.55 * ao;
   col += base * emi * 1.6;
   col *= uExp;
   col = (col * (2.51 * col + 0.03)) / (col * (2.43 * col + 0.59) + 0.14); // ACES
@@ -274,7 +303,7 @@ function initGL() {
     const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
     const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(pr);
     if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
-    const U = {}; for (const n of ['uR', 'uBox', 'uZ', 'uPass', 'uKey', 'uKeyC', 'uFill', 'uFillC', 'uRimC', 'uSky', 'uGround', 'uHor', 'uExp']) U[n] = gl.getUniformLocation(pr, n);
+    const U = {}; for (const n of ['uR', 'uBox', 'uZ', 'uPass', 'uKey', 'uKeyC', 'uFill', 'uFillC', 'uRimC', 'uSky', 'uGround', 'uHor', 'uExp', 'uSh', 'uDp', 'uLU', 'uLV', 'uLD', 'uLB', 'uLZ', 'uRes', 'uAOr', 'uShOn']) U[n] = gl.getUniformLocation(pr, n);
     const Aloc = {}; for (const n of ['aP', 'aN', 'aC', 'aA', 'aX']) Aloc[n] = gl.getAttribLocation(pr, n);
     const bufs = {}; for (const n in Aloc) bufs[n] = gl.createBuffer();
     cv.addEventListener('webglcontextlost', () => { GL = null; glFailed = true; });
@@ -292,7 +321,7 @@ export function bake3D(mesh, o) {
   const G = initGL();
   if (!G) return null;
   const { gl, U, Aloc, bufs } = G;
-  const w = o.w, h = o.h, ox = o.ox, oy = o.oy, px = Math.max(1, Math.min(6, o.px || 2)), ss = o.ss || 2;
+  const w = o.w, h = o.h, ox = o.ox, oy = o.oy, px = Math.max(1, Math.min(6, o.px || 2)), ss = o.ss || (px >= 2.5 ? 1.5 : 2);
   const W = Math.max(2, Math.ceil(w * px)), H = Math.max(2, Math.ceil(h * px)), RW = Math.min(4096, W * ss), RH = Math.min(4096, H * ss);
   G.cv.width = RW; G.cv.height = RH;
   gl.viewport(0, 0, RW, RH);
@@ -308,6 +337,28 @@ export function bake3D(mesh, o) {
   gl.uniform3fv(U.uKey, L.key); gl.uniform3fv(U.uKeyC, L.keyC); gl.uniform3fv(U.uFill, L.fill); gl.uniform3fv(U.uFillC, L.fillC);
   gl.uniform3fv(U.uRimC, L.rim); gl.uniform3fv(U.uSky, L.sky); gl.uniform3fv(U.uGround, L.ground); gl.uniform3fv(U.uHor, L.hor); gl.uniform1f(U.uExp, L.exp);
   gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.disable(gl.CULL_FACE);
+  // --- carte d'ombre + profondeur caméra (ombres portées et occlusion ambiante) ---
+  const fancy = o.shadows !== false;
+  gl.uniform1f(U.uShOn, fancy ? 1 : 0); gl.uniform1f(U.uAOr, fancy ? (o.ao ?? 5) * px * ss : 0); gl.uniform2f(U.uRes, RW, RH);
+  if (fancy) {
+    const Ld = norm(L.key), up0 = Math.abs(Ld[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0], LU = norm(cross(up0, Ld)), LV = cross(Ld, LU);
+    let mu = 1e9, Mu = -1e9, mvv = 1e9, Mv = -1e9, md = 1e9, Md = -1e9;
+    for (let i = 0; i < mesh.n; i += 3) { const q = mv(R, [mesh.P[i * 3], mesh.P[i * 3 + 1], mesh.P[i * 3 + 2]]); const u = dot(q, LU), v = dot(q, LV), d = dot(q, Ld); if (u < mu) mu = u; if (u > Mu) Mu = u; if (v < mvv) mvv = v; if (v > Mv) Mv = v; if (d < md) md = d; if (d > Md) Md = d; }
+    const pad = 4; mu -= pad; mvv -= pad; Mu += pad; Mv += pad; md -= pad; Md += pad;
+    gl.uniform3fv(U.uLU, LU); gl.uniform3fv(U.uLV, LV); gl.uniform3fv(U.uLD, Ld); gl.uniform4f(U.uLB, mu, mvv, Mu - mu, Mv - mvv); gl.uniform2f(U.uLZ, md, Md - md);
+    const SM = Math.min(2048, Math.max(1024, Math.ceil(Math.max(RW, RH) * 1.2 / 256) * 256));
+    for (const u of [1, 2]) { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, null); } // pas de boucle texture/cible
+    gl.activeTexture(gl.TEXTURE0);
+    G.sm = depthTarget(gl, G.sm, SM, SM); G.dp = depthTarget(gl, G.dp, RW, RH);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, G.sm.fb); gl.viewport(0, 0, SM, SM); gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT);
+    gl.uniform1i(U.uPass, 2); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, G.dp.fb); gl.viewport(0, 0, RW, RH); gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT);
+    gl.uniform1i(U.uPass, 3); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, RW, RH);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, G.sm.tex); gl.uniform1i(U.uSh, 1);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, G.dp.tex); gl.uniform1i(U.uDp, 2);
+    gl.activeTexture(gl.TEXTURE0);
+  }
   const grab = () => { const c = makeCanvas(W, H), g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(G.cv, 0, 0, W, H); return c; };
   gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.uniform1i(U.uPass, 0); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
@@ -318,8 +369,24 @@ export function bake3D(mesh, o) {
     gl.uniform1i(U.uPass, 1); gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
     bloom = blurred(grab(), px * (o.bloomR || 3));
   }
+  for (const u of [1, 2]) { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, null); }
+  gl.activeTexture(gl.TEXTURE0);
   if (o.outline !== 0) cv = outlined(cv, Math.max(1, (o.outline ?? 0.9) * px), o.outlineC || 'rgba(8,4,18,0.95)');
   return { cv, bloom, w, h, ox, oy };
+}
+// cible de profondeur (texture lisible par le shader)
+function depthTarget(gl, cur, w, h) {
+  if (cur && cur.w === w && cur.h === h) return cur;
+  if (cur) { gl.deleteFramebuffer(cur.fb); gl.deleteTexture(cur.tex); gl.deleteRenderbuffer(cur.rb); }
+  const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, w, h, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+  for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+  const rb = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, rb); gl.renderbufferStorage(gl.RENDERBUFFER, gl.RGBA8, w, h);
+  const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, rb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, tex, 0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.bindTexture(gl.TEXTURE_2D, null);
+  return { fb, tex, rb, w, h };
 }
 // contour sombre (lisibilité arcade sur fond chargé)
 function outlined(src, r, col) {
@@ -341,4 +408,77 @@ function blurred(src, r) {
   go.imageSmoothingEnabled = true; go.globalCompositeOperation = 'lighter';
   go.drawImage(src, 0, 0); go.drawImage(a, 0, 0, W, H); go.drawImage(b, 0, 0, W, H); go.drawImage(b, 0, 0, W, H);
   return out;
+}
+
+// ---------- Outils de silhouette ----------
+// échantillonnage de courbes (pour décrire des contours)
+export function qb(a, c, b, n = 10) { const o = []; for (let i = 0; i <= n; i++) { const t = i / n, u = 1 - t; o.push([u * u * a[0] + 2 * u * t * c[0] + t * t * b[0], u * u * a[1] + 2 * u * t * c[1] + t * t * b[1]]); } return o; }
+export function cb(a, c1, c2, b, n = 14) { const o = []; for (let i = 0; i <= n; i++) { const t = i / n, u = 1 - t; o.push([u * u * u * a[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * b[0], u * u * u * a[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * b[1]]); } return o; }
+export function ellPts(cx, cy, rx, ry, n = 48, a0 = 0, a1 = Math.PI * 2) { const o = []; for (let i = 0; i < n; i++) { const a = a0 + (i / n) * (a1 - a0); o.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]); } return o; }
+export const chain = (...parts) => { const o = []; for (const p of parts) for (const q of p) { const l = o[o.length - 1]; if (!l || Math.abs(l[0] - q[0]) > 1e-6 || Math.abs(l[1] - q[1]) > 1e-6) o.push(q); } return o; };
+export const mirrorX = (half) => chain(half, half.slice().reverse().map(([x, y]) => [-x, y]));
+function rayHit(c, a, P) {
+  const dx = Math.cos(a), dy = Math.sin(a); let best = 0;
+  for (let i = 0; i < P.length; i++) {
+    const A = P[i], B = P[(i + 1) % P.length], ex = B[0] - A[0], ey = B[1] - A[1];
+    const den = dx * ey - dy * ex; if (Math.abs(den) < 1e-9) continue;
+    const ax = A[0] - c[0], ay = A[1] - c[1], t = (ax * ey - ay * ex) / den, s = (ax * dy - ay * dx) / den;
+    if (t > 0 && s >= -1e-6 && s <= 1 + 1e-6 && t > best) best = t;
+  }
+  return best;
+}
+// Gonfle un contour 2D (en étoile autour du centre) en un relief bombé : z = 0 sur le contour, z = depth au sommet
+export function inflate(outline, depth, m, o = {}) {
+  let cx = 0, cy = 0; for (const p of outline) { cx += p[0]; cy += p[1]; }
+  const c = o.c || [cx / outline.length, cy / outline.length];
+  const nT = o.nT || 96, nS = o.nS || 18, p = o.p || 2.2, z0 = o.z0 || 0;
+  const R = []; for (let i = 0; i <= nT; i++) R.push(rayHit(c, (i / nT) * Math.PI * 2, outline));
+  const prof = o.prof || ((s) => Math.pow(Math.max(0, 1 - Math.pow(s, p)), 1 / p));
+  return surface((u, v) => {
+    const a = u * Math.PI * 2, f = u * nT, i = Math.min(nT - 1, Math.floor(f)), k = f - i, r = R[i] + (R[i + 1] - R[i]) * k, s = 1 - v;
+    const x = c[0] + Math.cos(a) * r * s, y = c[1] + Math.sin(a) * r * s;
+    return [x, y, z0 + depth * prof(s, x, y) * (o.zf ? o.zf(x, y) : 1)];
+  }, nT, nS, m);
+}
+// hauteur d'un relief gonflé en un point (pour poser des détails dessus)
+export function inflateH(outline, depth, x, y, o = {}) {
+  let cx = 0, cy = 0; for (const p of outline) { cx += p[0]; cy += p[1]; }
+  const c = o.c || [cx / outline.length, cy / outline.length], p = o.p || 2.2;
+  const a = Math.atan2(y - c[1], x - c[0]), r = rayHit(c, a, outline), d = Math.hypot(x - c[0], y - c[1]), s = Math.min(1, d / (r || 1));
+  return (o.z0 || 0) + depth * Math.pow(Math.max(0, 1 - Math.pow(s, p)), 1 / p) * (o.zf ? o.zf(x, y) : 1);
+}
+
+// Plaque « conforme » : épouse une surface de hauteur H(x, y) avec une épaisseur t et un biseau arrondi
+export function conform(outline, H, t, m, o = {}) {
+  let cx = 0, cy = 0; for (const p of outline) { cx += p[0]; cy += p[1]; }
+  const c = o.c || [cx / outline.length, cy / outline.length], nT = o.nT || 48, nS = o.nS || 8, edge = o.edge ?? 0.22;
+  const R = []; for (let i = 0; i <= nT; i++) R.push(rayHit(c, (i / nT) * Math.PI * 2, outline));
+  const prof = (s) => (s < 1 - edge ? 1 : Math.cos(((s - (1 - edge)) / edge) * Math.PI * 0.5));
+  return surface((u, v) => {
+    const a = u * Math.PI * 2, f = u * nT, i = Math.min(nT - 1, Math.floor(f)), k = f - i, r = R[i] + (R[i + 1] - R[i]) * k, s = 1 - v;
+    const x = c[0] + Math.cos(a) * r * s, y = c[1] + Math.sin(a) * r * s;
+    return [x, y, H(x, y) + (o.base ?? -0.6) + t * prof(s)];
+  }, nT, nS, m);
+}
+// Point dans un polygone
+export function inPoly(x, y, P) { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const a = P[i], b = P[j]; if ((a[1] > y) !== (b[1] > y) && x < ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]) + a[0]) c = !c; } return c; }
+// Petits détails mécaniques (aérations, boîtiers, tuyaux, rivets) posés sur une surface H(x, y)
+export function greebles(M, region, H, n, seed, mats, o = {}) {
+  let s = seed * 7919 + 17; const R = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; for (const [x, y] of region) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const sc = o.scale || 1, sym = o.sym !== false;
+  let placed = 0, guard = 0;
+  while (placed < n && guard++ < n * 30) {
+    const x = x0 + R() * (x1 - x0), y = y0 + R() * (y1 - y0);
+    if (!inPoly(x, y, region) || (o.avoid && o.avoid(x, y))) continue;
+    const kind = R(), z = H(x, y), w = (2 + R() * 5) * sc, hh = (1.5 + R() * 4) * sc;
+    const pts = sym && Math.abs(x) > 3 ? [[x, y], [-x, y]] : [[x, y]];
+    for (const [px, py] of pts) {
+      if (kind < 0.35) M.add(rbox(w, hh, 1.6 * sc, 0.3, mats.box), { t: [px, py, z + 0.3] });
+      else if (kind < 0.55) { M.add(rbox(w, hh * 0.6, 1.2 * sc, 0.4, mats.dark), { t: [px, py, z + 0.2] }); M.add(rbox(w * 0.8, 0.6 * sc, 0.6 * sc, 0.5, mats.glow), { t: [px, py, z + 1.1 * sc] }); }
+      else if (kind < 0.75) { const L = 6 + R() * 10; M.add(tube((t) => [px - L / 2 + t * L, py, z + 1.1 * sc], () => 0.8 * sc, mats.pipe, { nA: 4, nR: 8 })); }
+      else M.add(sphere(0.9 * sc, mats.rivet, { nu: 8, nv: 6 }), { t: [px, py, z + 0.4] });
+    }
+    placed++;
+  }
 }

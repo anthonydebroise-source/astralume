@@ -2,6 +2,7 @@
 import { TAU, rgba, lighten, darken, mixHex, clamp } from '../engine/math.js';
 import { Sculptor, drawSculpt, drawBloom } from '../engine/sculpt.js';
 import { glow } from '../engine/sprites.js';
+import { buildBoss3D } from './boss3d.js';
 
 export function bossPalette(C) {
   return {
@@ -324,6 +325,9 @@ export function buildBossArt(arch, C, px) {
   let A = cache.get(key);
   if (A) return A;
   const P = bossPalette(C);
+  // version 3D (WebGL) si possible, sinon pièces sculptées 2D
+  A = buildBoss3D(arch, C, P, px);
+  if (A) { if (cache.size > 3) cache.clear(); cache.set(key, A); return A; }
   A = D.build(C, P, px);
   A.wounds = [15, 26, 36].map((r) => ({ r, s: woundArt(C, P, px, r) }));
   A.core = { r: 24, s: coreOrb(C, P, px, 24) };
