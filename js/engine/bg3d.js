@@ -7,6 +7,7 @@ import { makeCanvas } from './sprites.js';
 import { Noise } from './noise.js';
 import { RNG, hash32, hexToRgb, mixHex, lighten, darken } from './math.js';
 import { nebulaTexture } from '../game/bgart.js';
+import { Mesh, mat, tube, sphere, superq, lathe, rgb as lin } from './gl3d.js';
 
 const P0 = 500;          // profondeur du plan de jeu (unités)
 const TILT = 0.26;       // inclinaison de la caméra vers l'avant
@@ -44,10 +45,10 @@ in vec3 aP; in vec3 aT; uniform mat4 uVP; out vec3 vT; void main() { vT = aT; gl
 const FS_TRI = `#version 300 es
 precision highp float; in vec3 vT; uniform sampler2D uTex; uniform float uA; out vec4 o; void main() { vec4 t = texture(uTex, vT.xy); o = t * uA * vT.z; }`;
 const VS_MESH = `#version 300 es
-in vec3 aP; in vec3 aN; uniform mat4 uVP; uniform mat4 uM; out vec3 vN; out vec3 vO; out vec3 vW; out vec2 vT;
-void main() { vec4 w = uM * vec4(aP, 1.0); vW = w.xyz; vO = aP; vN = mat3(uM) * aN; vT = vec2(atan(aP.y, aP.x) / 6.2831853 + 0.5, acos(clamp(aP.z / length(aP), -1.0, 1.0)) / 3.14159); gl_Position = uVP * w; }`;
+in vec3 aP; in vec3 aN; in vec4 aC; uniform mat4 uVP; uniform mat4 uM; out vec3 vN; out vec3 vO; out vec3 vW; out vec2 vT; out vec4 vC;
+void main() { vec4 w = uM * vec4(aP, 1.0); vW = w.xyz; vO = aP; vN = mat3(uM) * aN; vC = aC; vT = vec2(atan(aP.y, aP.x) / 6.2831853 + 0.5, acos(clamp(aP.z / length(aP), -1.0, 1.0)) / 3.14159); gl_Position = uVP * w; }`;
 const FS_MESH = `#version 300 es
-precision highp float; in vec3 vN; in vec3 vO; in vec3 vW; in vec2 vT;
+precision highp float; in vec3 vN; in vec3 vO; in vec3 vW; in vec2 vT; in vec4 vC;
 uniform int uKind; uniform sampler2D uTex; uniform vec3 uSun; uniform vec3 uCamP; uniform vec3 uA; uniform vec3 uB; uniform vec3 uAtm; uniform vec3 uEmi; uniform float uAmb; uniform float uFog; out vec4 o;
 float h(vec3 p) { p = fract(p * 0.3183 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
 float n3(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
@@ -63,6 +64,12 @@ void main() {
     float fr = pow(1.0 - max(dot(N, V), 0.0), 3.0);
     col += uAtm * fr * (0.25 + 1.2 * term);
     col += uAtm * 0.25 * pow(max(dot(reflect(-L, N), V), 0.0), 18.0) * term;
+  } else if (uKind == 2) { // décor planétaire (couleur par sommet + émission)
+    vec3 H = normalize(L + V); spec = pow(max(dot(N, H), 0.0), 30.0) * 0.25;
+    float wrap = max((nd + 0.12) / 1.12, 0.0);
+    col = vC.rgb * (wrap * 1.55 + uAmb) + vec3(spec) + vC.rgb * vC.a * 2.2;
+    col *= 0.75 + 0.25 * smoothstep(-500.0, -440.0, vW.z); // pied des reliefs plus sombre (occlusion au sol)
+    col += uAtm * pow(1.0 - max(dot(N, V), 0.0), 2.5) * 0.5;
   } else { // roche / chair / cristal
     float e = 0.05; vec3 q = vO * 3.2;
     float b0 = n3(q) + 0.5 * n3(q * 2.3);
@@ -130,10 +137,14 @@ function texFrom(canvas, repeat = true) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE);
   return t;
 }
-function meshBuf(P, N) {
+function meshBuf(P, N, Cc) {
   const gl = G.gl, vao = gl.createVertexArray(); gl.bindVertexArray(vao);
   const M = G.mesh;
-  for (const [n, arr] of [['aP', P], ['aN', N]]) { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.STATIC_DRAW); const l = M.a(n); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 3, gl.FLOAT, false, 0, 0); }
+  for (const [n, arr, sz] of [['aP', P, 3], ['aN', N, 3], ['aC', Cc, 4]]) {
+    const l = M.a(n); if (l < 0) continue;
+    if (!arr) { gl.disableVertexAttribArray(l); gl.vertexAttrib4f(l, 1, 1, 1, 0); continue; }
+    const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.STATIC_DRAW); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, 0, 0);
+  }
   gl.bindVertexArray(null);
   return { vao, n: P.length / 3 };
 }
@@ -389,4 +400,111 @@ function drawRocks(S, VP) {
     const mb = S.rockMeshes[k.m]; gl.bindVertexArray(mb.vao); gl.drawArrays(gl.TRIANGLES, 0, mb.n);
   }
   gl.bindVertexArray(null);
+}
+
+
+// ================= Mondes planétaires : sol en vraie 3D + reliefs propres au biome =================
+// Le sol (textures du terrain procédural) reste calé sur le défilement des ennemis au sol ;
+// les reliefs qui s'élèvent vers la caméra se décalent en profondeur (parallaxe, perspective).
+function toBuf(M) { // maillage gl3d -> tampons (couleur sRGB approchée + émission)
+  const P = M.P, N = M.N, C = [];
+  for (let i = 0; i < M.n; i++) C.push(Math.pow(M.C[i * 3], 1 / 2.2), Math.pow(M.C[i * 3 + 1], 1 / 2.2), Math.pow(M.C[i * 3 + 2], 1 / 2.2), Math.min(1, M.A[i * 4 + 2]));
+  return meshBuf(P, N, C);
+}
+function propMesh(kind, pal, seed) {
+  let s0 = seed * 9301 + 17; const R = () => ((s0 = (s0 * 16807) % 2147483647) / 2147483647);
+  const M = new Mesh(), deco = pal.deco, deco2 = pal.deco2;
+  const m = (hex, emi = 0) => mat('plastic', hex, { emi });
+  if (kind === 'coral') {
+    const br = (x, y, z, ax, ay, L, r, d) => {
+      if (d <= 0) return;
+      const ex = x + ax * L, ey = y + ay * L, ez = z + L;
+      M.add(tube((t) => [x + (ex - x) * t, y + (ey - y) * t, z + (ez - z) * t], (t) => r * (1 - t * 0.35), m(d > 1 ? lightenH(deco, -0.2) : deco), { nA: 6, nR: 8 }));
+      if (d === 1) M.add(sphere(r * 1.2, m(deco2, 0.9), { nu: 8, nv: 6 }), { t: [ex, ey, ez] });
+      for (let k = 0; k < 2; k++) br(ex, ey, ez, ax + (R() - 0.5) * 1.2, ay + (R() - 0.5) * 1.2, L * 0.72, r * 0.68, d - 1);
+    };
+    br(0, 0, 0, 0, 0, 34 + R() * 20, 7 + R() * 3, 4);
+  } else if (kind === 'swamp') {
+    const H = 60 + R() * 50;
+    M.add(tube((t) => [Math.sin(t * 3) * 4, 0, t * H], (t) => 5 * (1 - t * 0.5), m('#3a2a1e'), { nA: 10, nR: 8 }));
+    for (let k = 0; k < 3; k++) { const a = (k / 3) * Math.PI * 2 + R(); M.add(tube((t) => [Math.cos(a) * (14 - t * 14), Math.sin(a) * (14 - t * 14), t * 18], (t) => 2 + t, m('#2e2218'), { nA: 6, nR: 6 })); }
+    for (let k = 0; k < 5; k++) M.add(superq(16 + R() * 10, 16 + R() * 10, 9, 1, 1, m(k % 2 ? '#1f4a34' : '#28563a')), { t: [(R() - 0.5) * 26, (R() - 0.5) * 26, H + R() * 10] });
+    for (let k = 0; k < 6; k++) M.add(sphere(1.6, m(deco2, 1), { nu: 6, nv: 4 }), { t: [(R() - 0.5) * 40, (R() - 0.5) * 40, H + 8 + R() * 6] });
+  } else if (kind === 'ice') {
+    const n = 3 + Math.floor(R() * 4);
+    for (let k = 0; k < n; k++) { const h = 30 + R() * 80, r = 5 + R() * 7; M.add(lathe([[r, 0], [r * 0.8, h * 0.7], [0, h]], mat('plastic', k % 2 ? '#bfe8ff' : '#8fd0ff', { emi: 0.12, flat: true }), { seg: 6, nv: 3 }), { t: [(R() - 0.5) * 24, (R() - 0.5) * 24, 0], r: [(R() - 0.5) * 0.5, (R() - 0.5) * 0.5, R() * 6] }); }
+  } else if (kind === 'lava') {
+    const n = 4 + Math.floor(R() * 4);
+    for (let k = 0; k < n; k++) { const h = 20 + R() * 70, r = 6 + R() * 5, x = (R() - 0.5) * 30, y = (R() - 0.5) * 30; M.add(lathe([[r, 0], [r, h], [r * 0.85, h + 2], [0, h + 2]], mat('plastic', '#2a2426', { flat: true }), { seg: 6, nv: 4 }), { t: [x, y, 0] }); M.add(lathe([[r * 0.6, 0], [0, 0.6]], m('#ff6a1a', 1), { seg: 6 }), { t: [x, y, h + 2.2] }); }
+  } else if (kind === 'dunes') {
+    const lay = 5 + Math.floor(R() * 4); let r = 26 + R() * 14;
+    for (let k = 0; k < lay; k++) { M.add(superq(r, r * (0.7 + R() * 0.3), 6, 0.5, 1, m(k % 2 ? '#d8a868' : '#b8804a')), { t: [0, 0, k * 10 + 5] }); r *= 0.86; }
+  } else if (kind === 'mushroom') {
+    const H = 50 + R() * 60, cr = 22 + R() * 14;
+    M.add(tube((t) => [Math.sin(t * 2.5) * 5, 0, t * H], (t) => 5 + 2 * (1 - t), m('#efe6dc'), { nA: 10, nR: 10 }));
+    M.add(superq(cr, cr, cr * 0.42, 1, 1, m(deco)), { t: [Math.sin(2.5) * 5, 0, H] });
+    for (let k = 0; k < 9; k++) { const a = R() * 6.28, d = R() * cr * 0.8; M.add(sphere(2.2, m(deco2, 1), { nu: 6, nv: 4 }), { t: [Math.sin(2.5) * 5 + Math.cos(a) * d, Math.sin(a) * d, H + cr * 0.42 * Math.sqrt(Math.max(0, 1 - (d / cr) ** 2))] }); }
+  } else {
+    const n = 3 + Math.floor(R() * 3);
+    for (let k = 0; k < n; k++) { const h = 30 + R() * 60, r = 8 + R() * 8; M.add(lathe([[r, 0], [r * 0.6, h * 0.6], [0, h]], m(k % 2 ? '#4a4458' : '#5c5470'), { seg: 7, nv: 3 }), { t: [(R() - 0.5) * 30, (R() - 0.5) * 30, 0] }); }
+  }
+  return toBuf(M);
+}
+function lightenH(hex, k) { const c = hexToRgb(hex); const f = (v) => Math.max(0, Math.min(255, Math.round(k >= 0 ? v + (255 - v) * k : v * (1 + k)))); return '#' + [f(c[0]), f(c[1]), f(c[2])].map((v) => v.toString(16).padStart(2, '0')).join(''); }
+export function bg3dPlanetScene(def, bg) {
+  if (!bg3dAvailable()) return null;
+  const P = def.pal, kind = bg.groundKind || 'rock';
+  const S = { planet: true, bg, pal: P, kind, tex: new Map(), t: 0, camX: 0, props: [], glowTex: texFrom(glowTexture(), false) };
+  S.propMeshes = [0, 1, 2, 3, 4, 5].map((k) => propMesh(kind, P, hash32(def.seed || 1, 300 + k)));
+  S.sun = [-0.55, 0.45, 0.8];
+  return S;
+}
+function chunkProps(S, k) {
+  const r = new RNG(hash32(k, 777, S.kind.length)), out = [], CHh = 640, n = 4 + Math.floor(r.next() * 4);
+  for (let i = 0; i < n; i++) {
+    const side = r.next() < 0.85 ? (r.next() < 0.5 ? -1 : 1) : 0;
+    const x = side ? side * (view.w * 0.5 - r.range(8, 70)) : r.range(-60, 60);
+    out.push({ m: Math.floor(r.next() * 6), x, y: (k + r.next()) * CHh - view.h / 2, s: side ? r.range(1.0, 1.9) : r.range(0.6, 1.0), rz: r.range(0, 6.28) });
+  }
+  return out;
+}
+export function bg3dRenderPlanet(S, st) {
+  if (!S || !G || G.lost) return false;
+  const gl = G.gl, bg = S.bg, CHh = 640;
+  if (G.cv.width !== Math.round(view.cssW * Math.min(2, view.dpr) * 0.8)) resize3D();
+  bg3dShow(true);
+  S.t = st.t; S.camX += ((st.camX || 0) * 0.6 - S.camX) * Math.min(1, (st.dt || 0.016) * 3);
+  const W = G.cv.width, H = G.cv.height; gl.viewport(0, 0, W, H);
+  const fy = 2 * Math.atan((view.h / 2) / P0), asp = view.w / view.h, camY = bg.scroll;
+  const VP = mul(persp(fy, asp, 20, 30000), viewM(S.camX, camY, 0, 0));
+  gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  // sol : morceaux de terrain (texturés), calés sur le défilement du jeu
+  const Q = G.quad; gl.useProgram(Q.p); gl.uniformMatrix4fv(Q.U.uVP, false, VP); bindQuad(Q); gl.uniform1f(Q.U.uFog, 0); gl.uniform1i(Q.U.uTex, 0);
+  for (const [k, tx] of S.tex) if (!bg.chunks.has(k)) { gl.deleteTexture(tx); S.tex.delete(k); }
+  const ox = S.camX - view.w / 2;
+  for (const [k, ch] of bg.chunks) {
+    if (!ch.done || !ch.feat) continue;
+    let tx = S.tex.get(k); if (!tx) { tx = texFrom(ch.cv, false); S.tex.set(k, tx); }
+    const yb = k * CHh - view.h / 2;
+    gl.bindTexture(gl.TEXTURE_2D, tx);
+    gl.uniform3f(Q.U.uO, ox, yb, -P0); gl.uniform3f(Q.U.uU, view.w, 0, 0); gl.uniform3f(Q.U.uV, 0, CHh + 1, 0); gl.uniform4f(Q.U.uUV, 0, 1, 1, -1); gl.uniform4f(Q.U.uTint, 1, 1, 1, 1);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+  // lueurs du sol
+  gl.blendFunc(gl.ONE, gl.ONE); gl.bindTexture(gl.TEXTURE_2D, S.glowTex);
+  for (const [k, ch] of bg.chunks) { if (!ch.done) continue; const yt = (k + 1) * CHh - view.h / 2; for (const L of ch.lights) { const c = hexToRgb(L.c).map((v) => v / 255), r = L.r * (1 + 0.2 * Math.sin(S.t * 2 + L.x)); gl.uniform3f(Q.U.uO, ox + L.x - r, yt - L.y - r, -P0 + 1); gl.uniform3f(Q.U.uU, r * 2, 0, 0); gl.uniform3f(Q.U.uV, 0, r * 2, 0); gl.uniform4f(Q.U.uUV, 0, 0, 1, 1); gl.uniform4f(Q.U.uTint, c[0], c[1], c[2], 0.35); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); } }
+  // ombres des reliefs (vers le bas à droite : soleil en haut à gauche)
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  const vis = [];
+  const k0 = Math.floor((camY - view.h) / CHh), k1 = Math.floor((camY + view.h * 1.5) / CHh) + 1;
+  for (let k = k0; k <= k1; k++) for (const pr of chunkProps(S, k)) vis.push(pr);
+  for (const pr of vis) { const r = 34 * pr.s; gl.uniform3f(Q.U.uO, S.camX + pr.x - r + 14 * pr.s, pr.y - r - 14 * pr.s, -P0 + 0.5); gl.uniform3f(Q.U.uU, r * 2.2, 0, 0); gl.uniform3f(Q.U.uV, 0, r * 1.6, 0); gl.uniform4f(Q.U.uUV, 0, 0, 1, 1); gl.uniform4f(Q.U.uTint, 0, 0, 0, 0.5); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); }
+  // reliefs 3D
+  gl.disable(gl.BLEND); gl.enable(gl.DEPTH_TEST); gl.clear(gl.DEPTH_BUFFER_BIT);
+  const Mp = G.mesh; gl.useProgram(Mp.p); gl.uniformMatrix4fv(Mp.U.uVP, false, VP);
+  gl.uniform1i(Mp.U.uKind, 2); gl.uniform3fv(Mp.U.uSun, S.sun); gl.uniform3f(Mp.U.uCamP, S.camX, camY, 0); gl.uniform3fv(Mp.U.uAtm, rgbF(lightenH(S.pal.deco, 0.3)).map((x) => x * 0.6)); gl.uniform1f(Mp.U.uAmb, 0.16); gl.uniform1f(Mp.U.uFog, 0);
+  for (const pr of vis) { gl.uniformMatrix4fv(Mp.U.uM, false, modelM(S.camX + pr.x, pr.y, -P0, pr.s, 0, 0, pr.rz)); const mb = S.propMeshes[pr.m]; gl.bindVertexArray(mb.vao); gl.drawArrays(gl.TRIANGLES, 0, mb.n); }
+  gl.bindVertexArray(null); gl.disable(gl.DEPTH_TEST);
+  return true;
 }

@@ -4,7 +4,7 @@ import { RNG, TAU, rgba, lighten, darken, mixHex, hash32 } from '../engine/math.
 import { view, ctx, baseT } from '../engine/renderer.js';
 import { makeCanvas, glow } from '../engine/sprites.js';
 import { nebulaTexture, gasGiant, rockyMoon, rockSprite, cloudSprite, stationSprite, hiveSprite, monolithSprite, Terrain } from './bgart.js';
-import { bg3dScene, bg3dRender, bg3dShow, bg3dAvailable } from '../engine/bg3d.js';
+import { bg3dScene, bg3dRender, bg3dShow, bg3dAvailable, bg3dPlanetScene, bg3dRenderPlanet } from '../engine/bg3d.js';
 import { S as SAVE } from '../economy/save.js';
 
 const GROUND_FOR_SPACE = { nebula: 'rock', amber: 'rock', reef: 'coral', hive: 'flesh', quantum: 'grid', heart: 'flesh' };
@@ -39,7 +39,10 @@ export class Background {
     this.build();
     // décor spatial en vraie 3D (WebGL) quand c'est possible
     this.g3 = null; this.g3cam = 0; this.swayX = 0;
-    if (!this.planet && (SAVE.settings.quality || 'auto') !== 'low') { try { if (bg3dAvailable()) this.g3 = bg3dScene(this.def); } catch (e) { console.warn(e); this.g3 = null; } }
+    this.g3p = null;
+    if ((SAVE.settings.quality || 'auto') !== 'low') {
+      try { if (bg3dAvailable()) { if (!this.planet) this.g3 = bg3dScene(this.def); else if (this.terrain) this.g3p = bg3dPlanetScene(this.def, this); } } catch (e) { console.warn(e); this.g3 = this.g3p = null; }
+    }
   }
   build() {
     const P = this.pal, rng = new RNG(this.seed);
@@ -413,6 +416,15 @@ export class Background {
       baseT();
       if (this.mega) this.drawMega();
       if (this.side) this.drawSides();
+      return;
+    }
+    if (this.g3p && bg3dRenderPlanet(this.g3p, { t: this.t, camX: this.swayX, dt: this.g3dt })) {
+      // sol et reliefs en 3D sous le canvas du jeu ; on garde l'étalonnage et les ombres des nuages
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      baseT();
+      ctx.fillStyle = rgba(this.pal.bg0, 0.3); ctx.fillRect(0, 0, view.w, view.h);
+      for (const c of this.clouds) { const s = this.shadowSpr[c.k]; ctx.globalAlpha = 0.35; ctx.drawImage(s, c.x + 30, c.y + 46, 180 * c.s, 110 * c.s); }
+      ctx.globalAlpha = 1;
       return;
     }
     bg3dShow(false);
