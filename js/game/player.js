@@ -15,6 +15,7 @@ import { music } from '../audio/music.js';
 import { explode } from './fx.js';
 
 const OFFSETS = [0, 40, 70, 100];
+let shadowSpr = null;
 export const MAXW = 10; // niveaux de puissance (au-delà de 6 : même motif, dégâts et cadence accrus)
 
 export class Player {
@@ -280,6 +281,11 @@ export class Player {
   draw() {
     if (!this.alive) return;
     const blink = this.inv > 0 && this.entering <= 0 && Math.floor(this.t * 18) % 2 === 0;
+    // ombre douce sous le vaisseau : il se détache mieux des nébuleuses (profondeur)
+    if (!this.g.def.planet) {
+      const sh = shadowSpr || (shadowSpr = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g2 = c.getContext('2d'), gr = g2.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,8,0.6)'); gr.addColorStop(0.55, 'rgba(0,0,8,0.28)'); gr.addColorStop(1, 'rgba(0,0,8,0)'); g2.fillStyle = gr; g2.fillRect(0, 0, 64, 64); return c; })());
+      baseT(); ctx.globalAlpha = blink ? 0.3 : 0.75; ctx.drawImage(sh, this.x - 34 + 9, this.y - 30 + 16, 68, 60);
+    }
     ctx.globalAlpha = blink ? 0.45 : 1;
     // Lames de la Faucheuse
     if (this.blades.length) {

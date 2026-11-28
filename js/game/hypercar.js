@@ -406,14 +406,28 @@ function sheen(c, b, t, bank) {
 }
 
 function engines(c, S, t) {
+  // réacteurs : halo coloré, flamme en couches, cœur blanc et « diamants de choc » qui scintillent
   c.globalCompositeOperation = 'lighter';
   for (const [x, y, r] of S.engines) for (const s of x ? [1, -1] : [1]) {
-    const f = 0.85 + 0.15 * Math.sin(t * 47 + x * 3 + s), L = r * 5.5 * f, X = x * s;
-    const gr = c.createLinearGradient(0, y, 0, y + L);
-    gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.18, lighten(S.paint, 0.35)); gr.addColorStop(0.6, rgba(S.paint, 0.45)); gr.addColorStop(1, rgba(S.paint, 0));
+    const f = 0.82 + 0.18 * Math.sin(t * 47 + x * 3 + s) + 0.06 * Math.sin(t * 13.7 + s), L = r * 6.2 * f, X = x * s;
+    // halo large et doux
+    let gr = c.createRadialGradient(X, y + L * 0.35, 0, X, y + L * 0.35, L * 0.75);
+    gr.addColorStop(0, rgba(S.paint, 0.35)); gr.addColorStop(1, rgba(S.paint, 0));
+    c.fillStyle = gr; c.beginPath(); c.ellipse(X, y + L * 0.35, r * 2.2, L * 0.75, 0, 0, TAU); c.fill();
+    // flamme extérieure colorée
+    gr = c.createLinearGradient(0, y, 0, y + L);
+    gr.addColorStop(0, lighten(S.paint, 0.55)); gr.addColorStop(0.25, lighten(S.paint, 0.2)); gr.addColorStop(0.65, rgba(S.paint, 0.4)); gr.addColorStop(1, rgba(S.paint, 0));
     c.fillStyle = gr;
-    c.beginPath(); c.moveTo(X - r * 0.75, y); c.quadraticCurveTo(X - r * 0.5, y + L * 0.5, X, y + L); c.quadraticCurveTo(X + r * 0.5, y + L * 0.5, X + r * 0.75, y); c.closePath(); c.fill();
-    c.fillStyle = 'rgba(255,255,255,0.95)'; c.beginPath(); c.ellipse(X, y + 0.3, r * 0.45, r * 0.28, 0, 0, TAU); c.fill();
+    c.beginPath(); c.moveTo(X - r * 0.85, y); c.quadraticCurveTo(X - r * 0.6, y + L * 0.5, X, y + L); c.quadraticCurveTo(X + r * 0.6, y + L * 0.5, X + r * 0.85, y); c.closePath(); c.fill();
+    // cœur blanc plus court
+    const L2 = L * 0.48;
+    gr = c.createLinearGradient(0, y, 0, y + L2);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.7)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = gr;
+    c.beginPath(); c.moveTo(X - r * 0.42, y); c.quadraticCurveTo(X - r * 0.28, y + L2 * 0.5, X, y + L2); c.quadraticCurveTo(X + r * 0.28, y + L2 * 0.5, X + r * 0.42, y); c.closePath(); c.fill();
+    // diamants de choc
+    for (let k = 1; k <= 3; k++) { const yy = y + L * (0.14 + k * 0.17), a = (0.55 - k * 0.13) * (0.75 + 0.25 * Math.sin(t * 31 + k * 1.7 + s)); c.fillStyle = `rgba(255,255,255,${a})`; c.beginPath(); c.ellipse(X, yy, r * (0.36 - k * 0.06), r * 0.16, 0, 0, TAU); c.fill(); }
+    c.fillStyle = 'rgba(255,255,255,0.95)'; c.beginPath(); c.ellipse(X, y + 0.3, r * 0.5, r * 0.3, 0, 0, TAU); c.fill();
   }
   c.globalCompositeOperation = 'source-over';
 }
